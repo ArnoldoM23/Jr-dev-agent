@@ -1,0 +1,343 @@
+# 🚀 Jr Dev Agent - Development Infrastructure
+# ================================================
+version: '3.8'
+
+services:
+  # 🗄️ PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: jr_dev_postgres
+    environment:
+      POSTGRES_DB: jr_dev_db
+      POSTGRES_USER: jr_dev_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_MULTIPLE_DATABASES: pess_db,session_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - jr_dev_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jr_dev_user -d jr_dev_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🔴 Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: jr_dev_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass dev_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - jr_dev_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🧠 Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: jr_dev_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__LOG_LEVEL: INFO
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - jr_dev_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 📊 Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: jr_dev_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - jr_dev_network
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+
+  # 📈 Grafana Visualization
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: jr_dev_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - jr_dev_network
+    depends_on:
+      - prometheus
+
+  # 🔍 Jaeger Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: jr_dev_jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "9411:9411"
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: 9411
+    networks:
+      - jr_dev_network
+
+  # 🧠 LangGraph MCP Server (Orchestration Layer)
+  mcp-server:
+    build:
+      context: ./langgraph_mcp
+      dockerfile: Dockerfile
+    container_name: jr_dev_mcp_server
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://jr_dev_user:dev_password@postgres:5432/jr_dev_db
+      - REDIS_URL=redis://:dev_password@redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+      - PROMPTBUILDER_URL=http://promptbuilder:8001
+      - TEMPLATE_INTELLIGENCE_URL=http://template-intelligence:8002
+      - SESSION_MANAGEMENT_URL=http://session-management:8003
+      - SYNTHETIC_MEMORY_URL=http://synthetic-memory:8004
+    volumes:
+      - ./langgraph_mcp:/app
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      promptbuilder:
+        condition: service_healthy
+      template-intelligence:
+        condition: service_healthy
+      session-management:
+        condition: service_healthy
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+
+  # 🧱 PromptBuilder Service
+  promptbuilder:
+    build:
+      context: ./promptbuilder
+      dockerfile: Dockerfile
+    container_name: jr_dev_promptbuilder
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://:dev_password@redis:6379/1
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./promptbuilder:/app
+      - ./config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🎯 Template Intelligence Service
+  template-intelligence:
+    build:
+      context: ./template_intelligence
+      dockerfile: Dockerfile
+    container_name: jr_dev_template_intelligence
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://:dev_password@redis:6379/2
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./template_intelligence:/app
+      - ./config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 📊 Session Management Service
+  session-management:
+    build:
+      context: ./session_management
+      dockerfile: Dockerfile
+    container_name: jr_dev_session_management
+    ports:
+      - "8003:8003"
+    environment:
+      - REDIS_URL=redis://:dev_password@redis:6379/3
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./session_management:/app
+      - ./config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🧠 Synthetic Memory System
+  synthetic-memory:
+    build:
+      context: ./synthetic_memory
+      dockerfile: Dockerfile
+    container_name: jr_dev_synthetic_memory
+    ports:
+      - "8004:8004"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION_NAME=jrdev_memory
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./synthetic_memory:/app
+      - ./config:/app/config
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 📊 PESS Scoring System
+  pess:
+    build:
+      context: ./pess
+      dockerfile: Dockerfile
+    container_name: jr_dev_pess
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://jr_dev_user:dev_password@postgres:5432/pess_db
+      - REDIS_URL=redis://:dev_password@redis:6379/4
+      - DEV_MODE=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./pess:/app
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - jr_dev_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🔧 Development Tools
+  adminer:
+    image: adminer:4.8.1
+    container_name: jr_dev_adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - jr_dev_network
+
+  # 🔴 Redis Commander
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: jr_dev_redis_commander
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:dev_password
+    depends_on:
+      - redis
+    networks:
+      - jr_dev_network
+
+# 🌐 Networks
+networks:
+  jr_dev_network:
+    driver: bridge
+    name: jr_dev_network
+
+# 💾 Volumes
+volumes:
+  postgres_data:
+    name: jr_dev_postgres_data
+  redis_data:
+    name: jr_dev_redis_data
+  qdrant_data:
+    name: jr_dev_qdrant_data
+  prometheus_data:
+    name: jr_dev_prometheus_data
+  grafana_data:
+    name: jr_dev_grafana_data 

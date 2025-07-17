@@ -1,0 +1,43 @@
+# Testing framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-html==4.1.1
+pytest-xdist==3.5.0
+pytest-timeout==2.2.0
+pytest-mock==3.12.0
+
+# HTTP client for testing
+aiohttp==3.9.1
+httpx==0.25.2
+requests==2.31.0
+
+# Testing utilities
+factory-boy==3.3.0
+faker==22.0.0
+responses==0.24.1
+
+# Coverage
+coverage==7.3.2
+
+# Code quality
+flake8==6.1.0
+black==23.12.1
+isort==5.13.2
+mypy==1.8.0
+
+# Development utilities
+python-dotenv==1.0.0
+structlog==23.2.0
+
+# Data validation
+pydantic==2.5.0
+
+# Date/time utilities
+python-dateutil==2.8.2
+
+# JSON utilities
+ujson==5.9.0
+
+# Async utilities
+asyncio-throttle==1.0.2 

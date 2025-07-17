@@ -1,0 +1,112 @@
+# 🚀 Jr Dev Agent - Python Dependencies
+# ================================================
+
+# 🧠 LangGraph MCP Server
+langgraph>=0.1.0
+langchain>=0.2.0
+langchain-openai>=0.1.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# 📊 PESS Scoring System
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.2.0
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# 🧱 PromptBuilder
+jinja2>=3.1.0
+pyyaml>=6.0.0
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# 🧠 Synthetic Memory System
+qdrant-client>=1.7.0
+openai>=1.12.0
+sentence-transformers>=2.5.0
+faiss-cpu>=1.7.0  # Fallback option
+networkx>=3.2.0
+
+# 💾 Database & Storage
+redis>=5.0.0
+asyncpg>=0.29.0  # PostgreSQL async driver
+psycopg2-binary>=2.9.0  # PostgreSQL sync driver
+
+# 🔧 Infrastructure & DevOps
+docker>=7.0.0
+kubernetes>=29.0.0
+boto3>=1.34.0  # AWS SDK
+azure-storage-blob>=12.19.0  # Azure SDK
+
+# 📊 Monitoring & Observability
+prometheus-client>=0.20.0
+opentelemetry-api>=1.22.0
+opentelemetry-sdk>=1.22.0
+opentelemetry-instrumentation-fastapi>=0.43b0
+structlog>=24.1.0
+
+# 🔒 Security & Authentication
+cryptography>=42.0.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+python-multipart>=0.0.9
+
+# 🧪 Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.0.0
+pytest-mock>=3.12.0
+httpx>=0.27.0  # For FastAPI testing
+factory-boy>=3.3.0  # Test data factories
+
+# 📈 Development Tools
+black>=24.0.0
+flake8>=7.0.0
+mypy>=1.8.0
+pre-commit>=3.6.0
+bandit>=1.7.0  # Security linting
+
+# 🔄 Async & Concurrency
+asyncio>=3.4.3
+aiofiles>=23.2.0
+celery>=5.3.0  # Task queue
+redis>=5.0.0  # Celery broker
+
+# 🌐 Web & API
+starlette>=0.36.0
+python-dotenv>=1.0.0
+httpx>=0.27.0
+
+# 📊 Data Processing
+polars>=0.20.0  # Fast DataFrame library
+pyarrow>=15.0.0  # Arrow format support
+
+# 🛠️ Utilities
+click>=8.1.0  # CLI framework
+rich>=13.7.0  # Rich terminal output
+typer>=0.9.0  # CLI with type hints
+tenacity>=8.2.0  # Retry logic
+backoff>=2.2.0  # Exponential backoff
+
+# 📝 Documentation
+mkdocs>=1.5.0
+mkdocs-material>=9.5.0
+mkdocs-swagger-ui-tag>=0.6.0
+
+# 🔍 Code Quality
+ruff>=0.2.0  # Fast linter
+coverage>=7.4.0
+interrogate>=1.5.0  # Docstring coverage
+
+# 🚀 Deployment
+gunicorn>=21.2.0
+supervisor>=4.2.0
+
+# Development Dependencies (not needed in production)
+# Uncomment for development
+# jupyter>=1.0.0
+# ipython>=8.21.0
+# debugpy>=1.8.0 
