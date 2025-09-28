@@ -1,8 +1,24 @@
 {
+  "schema_version": "1.0",
   "ticket_id": "CEPG-67890",
+  "jira_url": "https://jira.example.com/browse/CEPG-67890",
   "template_name": "feature_schema_change",
   "summary": "Add pickup option to Order schema",
   "description": "Allow user to select store pickup for their order. This feature enables customers to choose pickup at a nearby store location instead of delivery, improving customer flexibility and reducing shipping costs.",
+  "feature": "order_self_pickup",
+  "feature_id": "order_self_pickup",
+  "priority": "high",
+  "story_points": 5,
+  "labels": ["feature", "schema-change", "pickup", "customer-experience"],
+  "component": "order-service",
+  "repository": "walmart/checkout-graphql",
+  "branch": "feature/CEPG-67890-order-pickup",
+  "assignee": "development-team",
+  "reporter": "product-manager",
+  "created_date": "2025-07-15T10:30:00Z",
+  "updated_date": "2025-07-15T14:45:00Z",
+  "epic_link": "CEPG-67000",
+  "sprint": "Sprint 2025.3",
   "acceptance_criteria": [
     "Update OrderInput.graphql to include pickup_store_id field",
     "Update Order.graphql schema to include pickup_store and pickup_time fields",
@@ -16,17 +32,31 @@
     "src/graphql/resolvers/orderResolver.ts",
     "src/graphql/resolvers/orderInputResolver.ts"
   ],
-  "feature": "order_self_pickup",
-  "priority": "high",
-  "story_points": 5,
-  "labels": ["feature", "schema-change", "pickup", "customer-experience"],
-  "component": "order-service",
-  "assignee": "development-team",
-  "reporter": "product-manager",
-  "created_date": "2025-07-15T10:30:00Z",
-  "updated_date": "2025-07-15T14:45:00Z",
-  "epic_link": "CEPG-67000",
-  "sprint": "Sprint 2025.3",
+  "commands": [
+    "npm run codegen",
+    "npm run typecheck",
+    "npm run test -w order-service -- --coverage"
+  ],
+  "agent_guardrails": {
+    "file_allowlist": [
+      "src/graphql/types/Order.graphql",
+      "src/graphql/inputs/OrderInput.graphql",
+      "src/graphql/resolvers/orderResolver.ts",
+      "src/graphql/resolvers/orderInputResolver.ts"
+    ],
+    "max_operations": 15,
+    "require_tests": true,
+    "require_pr": true,
+    "pr_title_format": "[CEPG-67890] Add pickup option to Order schema",
+    "pr_labels": ["feature", "schema-change"]
+  },
+  "success_checklist": [
+    "Schemas compile and codegen output is updated",
+    "Resolvers compile with no type errors",
+    "New unit tests added and all tests pass",
+    "Pickup validation enforces store hours",
+    "PR opened against the default branch with linked ticket"
+  ],
   "additional_context": {
     "business_value": "Customers can save on shipping costs and get orders faster",
     "technical_notes": "Integrate with store availability API",
@@ -36,6 +66,7 @@
       "Unit tests for GraphQL resolvers",
       "Integration tests with store service",
       "E2E tests for pickup flow"
-    ]
+    ],
+    "related_features": ["shipping_options", "store_selection"]
   }
 } 
