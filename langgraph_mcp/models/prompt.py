@@ -25,7 +25,7 @@ class PromptRequest(BaseModel):
     
     class Config:
         """Pydantic configuration"""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "ticket_data": {
                     "ticket_id": "CEPG-12345",
@@ -75,7 +75,7 @@ class PromptResponse(BaseModel):
     
     class Config:
         """Pydantic configuration"""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "prompt": "# 🎯 Development Task: Add user authentication feature\n\n## 📋 Ticket Information\n- **Ticket ID**: CEPG-12345\n- **Priority**: High\n- **Feature**: authentication\n- **Assignee**: developer@company.com\n\n## 📝 Description\nImplement OAuth2 authentication for the web application\n\n## ✅ Acceptance Criteria\n- Users can log in with Google OAuth\n- Session management is secure\n- Logout functionality works\n\n## 📁 Files to Modify\n- src/auth/oauth.py\n- src/models/user.py\n- tests/test_auth.py\n\n## 🏷️ Labels & Components\n- **Labels**: feature, security, frontend\n- **Components**: API, Frontend, Database\n\n## 🤖 Instructions for GitHub Copilot\n1. Review the ticket requirements above\n2. Implement the necessary changes in the specified files\n3. Follow best practices for code quality and testing\n4. Ensure all acceptance criteria are met\n5. Create or update tests as needed\n\n## 🔧 Technical Guidelines\n- Use TypeScript for type safety\n- Follow existing code patterns and conventions\n- Add proper error handling\n- Include comprehensive comments\n- Write unit tests for new functionality\n\n**Note**: This prompt was generated using the 'feature' template.",
                 "hash": "abc123def456789",
@@ -120,7 +120,7 @@ class PromptTemplate(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "feature",
                 "version": "1.0",
@@ -158,7 +158,7 @@ class PromptGenerationMetrics(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "session_id": "jr_dev_CEPG-12345_abc123",
                 "ticket_id": "CEPG-12345",

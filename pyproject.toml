@@ -1,0 +1,31 @@
+[project]
+name = "jr-dev-mcp"
+version = "2.0.0"
+description = "Jr Dev Agent - Pure MCP Server for Cross-IDE AI Agent Prompt Generation"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=0.1.0",              # Model Context Protocol SDK (Python)
+  "pydantic>=2.4",           # Data validation
+  "pyyaml>=6.0",             # YAML parsing for templates
+  "httpx>=0.27",             # Async HTTP client
+  "orjson>=3.9",             # Fast JSON serialization
+  "uvloop; platform_system!='Windows'",  # Fast event loop
+  "numpy>=1.26",             # Numerical operations
+  "scikit-learn>=1.4",       # Simple local embeddings
+  "tiktoken>=0.7.0"          # Token estimation (optional)
+]
+
+[project.optional-dependencies]
+vector = [
+  "faiss-cpu>=1.8.0"        # Vector database backend (optional)
+]
+
+[project.scripts]
+jr-dev-mcp = "langgraph_mcp.mcp_server:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

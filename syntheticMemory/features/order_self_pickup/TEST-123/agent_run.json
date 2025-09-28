@@ -1,0 +1,11 @@
+{
+  "ticket_id": "TEST-123",
+  "pr_url": "",
+  "pess_score": 0.95,
+  "completion_timestamp": 1759044164.453093,
+  "metadata": {
+    "session_id": "mcp_TEST-123_78cae326",
+    "template_used": "feature",
+    "processing_time_ms": 18
+  }
+}

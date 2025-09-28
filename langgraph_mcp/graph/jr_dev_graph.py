@@ -7,6 +7,7 @@ It orchestrates the entire process from ticket fetching to prompt generation.
 
 import hashlib
 import logging
+import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
@@ -19,6 +20,8 @@ from langgraph_mcp.utils.load_ticket_metadata import load_ticket_metadata
 from langgraph_mcp.nodes.jira_prompt_node import JiraPromptNode
 from langgraph_mcp.services.prompt_builder import PromptBuilder
 from langgraph_mcp.services.template_engine import TemplateEngine
+from langgraph_mcp.services.synthetic_memory import SyntheticMemory
+from langgraph_mcp.services.pess_client import PESSClient
 
 
 class JrDevState(TypedDict):
@@ -64,6 +67,8 @@ class JrDevGraph:
         self.prompt_builder = PromptBuilder()
         self.template_engine = TemplateEngine()
         self.jira_prompt_node = JiraPromptNode()
+        self.synthetic_memory = SyntheticMemory()
+        self.pess_client = PESSClient()
         
     async def initialize(self):
         """Initialize the LangGraph workflow"""
@@ -72,6 +77,8 @@ class JrDevGraph:
         # Initialize services
         await self.prompt_builder.initialize()
         await self.template_engine.initialize()
+        await self.synthetic_memory.initialize()
+        await self.pess_client.initialize()
         
         # Build the graph
         self.graph = self._build_graph()
@@ -123,6 +130,13 @@ class JrDevGraph:
         """
         try:
             self.logger.info(f"Processing ticket {ticket_data['ticket_id']} in session {session_id}")
+            
+            # Record session start for PESS tracking
+            await self.pess_client.record_session_start(
+                ticket_data['ticket_id'], 
+                session_id, 
+                {"source": "langgraph_workflow"}
+            )
             
             # Initialize state
             initial_state = JrDevState(
@@ -231,35 +245,46 @@ class JrDevGraph:
         """
         Node: Enrich context with synthetic memory
         
-        This node will eventually integrate with the Synthetic Memory system
-        to add context and related information to the prompt.
+        This node integrates with the Synthetic Memory system to add context
+        and related information to the prompt based on previous development sessions.
         """
         try:
             self.logger.info(f"Enriching context for {state['ticket_id']}")
             
-            # Placeholder for future Synthetic Memory integration
-            # enriched_data = await synthetic_memory.enrich_context(state['ticket_data'])
-            
-            # For now, just add some basic enrichment
-            enrichment_data = {
-                "context_enriched": True,
-                "enrichment_timestamp": datetime.now().isoformat(),
-                "complexity_score": 0.5,  # Default complexity
-                "related_files": [],  # Will be populated by Synthetic Memory
-                "related_tickets": []  # Will be populated by Synthetic Memory
-            }
+            # Use Synthetic Memory v2 to enrich context
+            enrichment_data = await self.synthetic_memory.enrich_context(state['ticket_data'])
             
             state['metadata']['enrichment'] = enrichment_data
-            state['current_step'] = "enrich_context"
+            state['current_step'] = "enrich_context" 
             state['steps_completed'].append("enrich_context")
             
-            self.logger.info(f"Successfully enriched context for {state['ticket_id']}")
+            # Log enrichment details
+            if enrichment_data.get('context_enriched'):
+                complexity = enrichment_data.get('complexity_score', 0)
+                related_count = len(enrichment_data.get('related_files', {}))
+                features_count = len(enrichment_data.get('connected_features', []))
+                self.logger.info(
+                    f"Successfully enriched context for {state['ticket_id']}: "
+                    f"complexity={complexity:.2f}, related_files={related_count}, "
+                    f"connected_features={features_count}"
+                )
+            else:
+                self.logger.warning(f"Context enrichment failed for {state['ticket_id']}")
             
         except Exception as e:
             error_msg = f"Error enriching context: {str(e)}"
             state['errors'].append(error_msg)
             self.logger.error(error_msg)
-            # Continue processing even if enrichment fails
+            
+            # Provide fallback enrichment data
+            state['metadata']['enrichment'] = {
+                "context_enriched": False,
+                "error": str(e),
+                "enrichment_timestamp": time.time(),
+                "complexity_score": 0.5,
+                "related_files": {},
+                "connected_features": []
+            }
         
         return state
     
@@ -288,6 +313,18 @@ class JrDevGraph:
             state['current_step'] = "generate_prompt"
             state['steps_completed'].append("generate_prompt")
             
+            # Record prompt generation for PESS tracking
+            try:
+                await self.pess_client.record_prompt_generated(
+                    ticket_id=state['ticket_id'],
+                    session_id=state['session_id'],
+                    prompt_hash=prompt_hash,
+                    template_used=state['template_used'],
+                    enrichment_data=state['metadata'].get('enrichment', {})
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to record prompt generation in PESS: {str(e)}")
+            
             self.logger.info(f"Successfully generated prompt for {state['ticket_id']} (hash: {prompt_hash})")
             
         except Exception as e:
@@ -302,15 +339,48 @@ class JrDevGraph:
         """
         Node: Finalize processing
         
-        This node performs final cleanup and preparation of the response.
+        This node performs final cleanup, PESS scoring, and preparation of the response.
         """
         try:
             self.logger.info(f"Finalizing processing for {state['ticket_id']}")
+            
+            # Calculate processing time
+            processing_time_ms = int((datetime.now() - state['processing_start']).total_seconds() * 1000)
+            
+            # Record PESS completion scoring
+            try:
+                pess_result = await self.pess_client.score_session_completion(
+                    ticket_id=state['ticket_id'],
+                    session_id=state['session_id'],
+                    processing_time_ms=processing_time_ms,
+                    retry_count=1  # Default for LangGraph workflow
+                )
+                state['metadata']['pess_score'] = pess_result
+                self.logger.info(f"PESS scoring completed for {state['ticket_id']}: {pess_result.get('prompt_score', 'N/A')}")
+            except Exception as e:
+                self.logger.warning(f"PESS scoring failed for {state['ticket_id']}: {str(e)}")
+                state['metadata']['pess_score'] = {"error": str(e), "mock_response": True}
+            
+            # Record completion in synthetic memory
+            try:
+                await self.synthetic_memory.record_completion(
+                    ticket_id=state['ticket_id'],
+                    pr_url="",  # Will be provided later via finalize_session
+                    pess_score=state['metadata']['pess_score'].get('prompt_score', 0.5),
+                    metadata={
+                        "session_id": state['session_id'],
+                        "template_used": state['template_used'],
+                        "processing_time_ms": processing_time_ms
+                    }
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to record completion in synthetic memory: {str(e)}")
             
             # Add final metadata
             state['metadata']['finalized_at'] = datetime.now().isoformat()
             state['metadata']['total_steps'] = len(state['steps_completed'])
             state['metadata']['success'] = len(state['errors']) == 0
+            state['metadata']['processing_time_ms'] = processing_time_ms
             
             state['current_step'] = "finalize"
             state['steps_completed'].append("finalize")
