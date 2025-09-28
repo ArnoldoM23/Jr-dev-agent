@@ -151,7 +151,7 @@ class JrDevGraph:
                 prompt="",
                 prompt_hash="",
                 template_used="",
-                processing_start=datetime.now(),
+                processing_start=datetime.now(timezone.utc),
                 processing_time_ms=0,
                 errors=[],
                 metadata={}
@@ -160,8 +160,11 @@ class JrDevGraph:
             # Run the workflow
             result = await self.graph.ainvoke(initial_state)
             
-            # Calculate processing time (timezone-aware)
-            processing_time = (datetime.now(timezone.utc) - result['processing_start']).total_seconds() * 1000
+            # Calculate processing time (timezone-aware, tolerate naive start)
+            start_dt = result['processing_start']
+            if getattr(start_dt, 'tzinfo', None) is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            processing_time = (datetime.now(timezone.utc) - start_dt).total_seconds() * 1000
             result['processing_time_ms'] = int(processing_time)
             
             self.logger.info(f"Successfully processed ticket {ticket_data['ticket_id']} in {processing_time:.0f}ms")
@@ -429,8 +432,11 @@ class JrDevGraph:
         try:
             self.logger.info(f"Finalizing processing for {state['ticket_id']}")
             
-            # Calculate processing time (timezone-aware)
-            processing_time_ms = int((datetime.now(timezone.utc) - state['processing_start']).total_seconds() * 1000)
+            # Calculate processing time (timezone-aware, tolerate naive start)
+            start_dt = state['processing_start']
+            if getattr(start_dt, 'tzinfo', None) is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            processing_time_ms = int((datetime.now(timezone.utc) - start_dt).total_seconds() * 1000)
             
             # Record PESS completion scoring
             try:

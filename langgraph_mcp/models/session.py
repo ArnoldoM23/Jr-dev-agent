@@ -331,7 +331,12 @@ class SessionManager:
         if session.status in [SessionStatus.COMPLETED, SessionStatus.FAILED]:
             return False
         
-        return datetime.now() - session.updated_at > self.session_timeout
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        updated = session.updated_at
+        if getattr(updated, 'tzinfo', None) is None or updated.tzinfo.utcoffset(updated) is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        return now - updated > self.session_timeout
     
     def export_sessions(self, filename: str):
         """
