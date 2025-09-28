@@ -6,8 +6,41 @@ These models ensure compliance with the MCP specification for cross-IDE compatib
 """
 
 from typing import Dict, Any, Optional, List, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, confloat
 from enum import Enum
+
+# ---------------------------
+# New: strongly-typed helpers
+# ---------------------------
+
+class ChatInjectionFormat(str, Enum):
+    markdown = "markdown"
+    plaintext = "plaintext"
+
+
+class ChatInjection(BaseModel):
+    enabled: bool = Field(True, description="If true, IDE should inject message into chat input")
+    message: str = Field(..., description="Exact text to inject (should mirror prompt_text)")
+    format: ChatInjectionFormat = Field(ChatInjectionFormat.markdown, description="Render hint for IDE")
+    instructions: str = Field(
+        "Press Enter to execute this prompt in Agent Mode",
+        description="User-facing guidance shown by IDE"
+    )
+
+
+class MemoryEnvelope(BaseModel):
+    """
+    Minimal, optional typing to align with spec while allowing extensions.
+    This does not replace the raw memory dict returned under `memory`.
+    """
+    feature_id: Optional[str] = Field(None, description="Resolved feature id for this task")
+    complexity_score: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        None, description="Heuristic 0–1 complexity"
+    )
+    related_nodes: Optional[List[str]] = Field(default_factory=list)
+    connected_features: Optional[List[str]] = Field(default_factory=list)
+    prior_runs: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    file_hints: Optional[List[str]] = Field(default_factory=list)
 
 
 class MCPRequest(BaseModel):
@@ -28,7 +61,7 @@ class MCPRequest(BaseModel):
                 "method": "tools/call",
                 "params": {
                     "name": "prepare_agent_task",
-                    "arguments": {"ticket_id": "CEPG-12345"}
+                    "arguments": {"ticket_id": "CEPG-12345", "ide": "vscode"}
                 },
                 "id": "request-123"
             }
@@ -106,13 +139,18 @@ class PrepareAgentTaskArgs(BaseModel):
     ticket_id: str = Field(..., pattern=r"^[A-Z]+-\d+$", description="Jira ticket ID")
     repo: Optional[str] = Field(None, description="Repository name (optional)")
     branch: Optional[str] = Field(None, description="Branch name (optional)")
+    repository: Optional[str] = Field(None, description="Fully-qualified repo (e.g., org/repo) if available")
+    ide: Optional[str] = Field(None, description="Client IDE hint (e.g., vscode, cursor, windsurf)")
+    user: Optional[str] = Field(None, description="User identifier/email for telemetry")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "ticket_id": "CEPG-12345",
-                "repo": "my-awesome-app",
-                "branch": "feature/cepg-12345"
+                "repository": "walmart/checkout-graphql",
+                "branch": "feature/cepg-12345",
+                "ide": "vscode",
+                "user": "amunoz@corp.com"
             }
         }
 
@@ -124,9 +162,20 @@ class PrepareAgentTaskResult(BaseModel):
     Contains agent-ready prompt, metadata, and chat injection capabilities.
     """
     prompt_text: str = Field(..., description="Generated agent-ready prompt")
-    metadata: Dict[str, Any] = Field(..., description="Execution metadata")
-    memory: Optional[Dict[str, Any]] = Field(None, description="Memory enrichment data")
-    chat_injection: Dict[str, Any] = Field(..., description="Chat injection configuration for IDEs")
+    # Parity with graph metadata (+ extras useful to the gateway)
+    metadata: Dict[str, Any] = Field(..., description="Execution metadata (ticket_id, template_used, etc.)")
+    memory: Optional[Dict[str, Any]] = Field(None, description="Memory enrichment data (raw)")
+    # Optional typed envelope (doesn't replace memory, just assists)
+    memory_envelope: Optional[MemoryEnvelope] = Field(None, description="Typed view over memory_envelope if present")
+    # strong typing for IDEs
+    chat_injection: ChatInjection = Field(..., description="Chat injection configuration for IDEs")
+
+    # commonly used top-level convenience fields
+    session_id: Optional[str] = Field(None, description="Session identifier for follow-ups")
+    prompt_hash: Optional[str] = Field(None, description="Short prompt hash")
+    prompt_hash_full: Optional[str] = Field(None, description="Full SHA256 prompt hash")
+    files_to_modify: Optional[List[str]] = Field(None, description="Resolved allowlist for edits")
+    commands: Optional[List[str]] = Field(None, description="Commands to run before/after edits")
 
     class Config:
         json_schema_extra = {
@@ -141,18 +190,34 @@ class PrepareAgentTaskResult(BaseModel):
                     ],
                     "template_used": "feature_schema_change",
                     "commands": ["npm run generate", "npm test"],
-                    "session_id": "mcp_CEPG-67890_abc123"
+                    "session_id": "mcp_CEPG-67890_abc123",
+                    "protocol_version": "v2.0"
                 },
                 "memory": {
+                    "context_enriched": True,
+                    "memory_envelope": {"feature_id": "order_self_pickup", "complexity_score": 0.74}
+                },
+                "memory_envelope": {
+                    "feature_id": "order_self_pickup",
                     "complexity_score": 0.74,
-                    "related_files": ["Order.graphql", "OrderInput.graphql"],
-                    "context_enriched": True
+                    "related_nodes": ["graphql_resolvers"],
+                    "connected_features": ["shipping_options"],
+                    "file_hints": ["src/graphql/types/Order.graphql"]
                 },
                 "chat_injection": {
                     "enabled": True,
-                    "message": "# 🎯 Development Task: Add pickup option to Order schema\n\n## 📋 Ticket Information\n- **Ticket ID**: CEPG-67890\n- **Priority**: high\n- **Feature**: order_self_pickup\n\n[... full prompt text ready for agent execution ...]",
-                    "format": "markdown"
-                }
+                    "message": "# 🎯 Development Task: Add pickup option to Order schema\n...",
+                    "format": "markdown",
+                    "instructions": "Press Enter to execute this prompt in Agent Mode"
+                },
+                "session_id": "mcp_CEPG-67890_abc123",
+                "prompt_hash": "a1b2c3d4e5f6a7b8",
+                "prompt_hash_full": "a1b2...fullsha...",
+                "files_to_modify": [
+                    "src/graphql/types/Order.graphql",
+                    "src/graphql/inputs/OrderInput.graphql"
+                ],
+                "commands": ["npm run codegen", "npm test"]
             }
         }
 
@@ -195,7 +260,7 @@ class FinalizeSessionResult(BaseModel):
     
     Contains PESS score and analytics data.
     """
-    pess_score: float = Field(..., description="PESS effectiveness score (0-100)")
+    pess_score: confloat(ge=0.0, le=100.0) = Field(..., description="PESS effectiveness score (0-100)")
     analytics: Dict[str, Any] = Field(..., description="Session analytics data")
 
     class Config:
@@ -217,6 +282,12 @@ class FinalizeSessionResult(BaseModel):
         }
 
 
+class HealthServiceInfo(BaseModel):
+    status: str = Field(..., description="Service status (available/unavailable/degraded)")
+    version: Optional[str] = Field(None, description="Service version")
+    details: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Optional detail map")
+
+
 class HealthToolResult(BaseModel):
     """
     Result from the health MCP tool
@@ -224,8 +295,8 @@ class HealthToolResult(BaseModel):
     Contains system health status and service availability.
     """
     status: str = Field(..., description="Overall health status")
-    services: Dict[str, str] = Field(..., description="Service status map")
-    timestamp: str = Field(..., description="Health check timestamp")
+    services: Dict[str, HealthServiceInfo] = Field(..., description="Per-service health info")
+    timestamp: str = Field(..., description="Health check timestamp (ISO8601)")
     mcp_tools_available: int = Field(..., description="Number of available MCP tools")
 
     class Config:
