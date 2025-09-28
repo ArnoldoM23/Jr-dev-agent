@@ -57,15 +57,20 @@ class SyntheticMemory:
     
     async def enrich_context(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Enrich ticket context with synthetic memory.
+        Enrich ticket context with synthetic memory using the 5-step retrieval algorithm.
         
-        This is the main method called by the LangGraph _enrich_context_node.
+        This implements Layer 1 - MCP "Memory Enrichment" as specified:
+        1. Identify feature scope
+        2. Locate memory packs  
+        3. Score & select
+        4. Assemble MemoryEnvelope
+        5. Return enriched context
         
         Args:
             ticket_data: Raw ticket data from Jira
             
         Returns:
-            Enhanced context with memory enrichment data
+            Enhanced context with MemoryEnvelope data
         """
         if not self.initialized:
             await self.initialize()
@@ -73,36 +78,332 @@ class SyntheticMemory:
         try:
             ticket_id = ticket_data.get("ticket_id", "unknown")
             
-            # Extract files from ticket data
-            files_referenced = self._extract_files_from_ticket(ticket_data)
+            # Step 1: Identify feature scope
+            feature_id, files_referenced = self._identify_feature_scope(ticket_data)
             
-            # Determine feature ID from ticket data
-            feature_id = self._determine_feature_id(ticket_data, files_referenced)
+            # ENHANCEMENT: Create memory for current ticket (preserving original logic)
+            current_memory = await self._enrich_memory(ticket_id, feature_id, files_referenced)
+            self.logger.info(f"Created memory structures for current ticket {ticket_id}")
             
-            # Perform memory enrichment
-            memory_data = await self._enrich_memory(ticket_id, feature_id, files_referenced)
+            # Step 2: Locate memory packs (for context from prior runs)
+            memory_packs = self._locate_memory_packs(feature_id)
             
-            # Return enriched context in LangGraph format
+            # Step 3: Score & select relevant runs
+            relevant_runs = self._score_and_select(memory_packs, files_referenced, ticket_data)
+            
+            # Step 4: Assemble MemoryEnvelope (enhancement for context enrichment)
+            memory_envelope = self._assemble_memory_envelope(feature_id, relevant_runs, files_referenced, ticket_data)
+            
+            # Step 5: Return enriched context combining original + enhanced logic
             return {
                 "context_enriched": True,
                 "enrichment_timestamp": time.time(),
-                "synthetic_memory": memory_data,
-                "complexity_score": memory_data.get("complexity_score", 0.5),
-                "related_files": memory_data.get("related_nodes", {}),
-                "connected_features": memory_data.get("connected_features", [])
+                "current_memory": current_memory,  # Original memory creation result
+                "memory_envelope": memory_envelope,  # Enhanced context retrieval
+                "complexity_score": memory_envelope.get("complexity_score", current_memory.get("complexity_score", 0.5)),
+                "related_files": memory_envelope.get("related_nodes", current_memory.get("related_nodes", {})),
+                "connected_features": memory_envelope.get("connected_features", current_memory.get("connected_features", []))
             }
             
         except Exception as e:
             self.logger.error(f"Error enriching context for {ticket_data.get('ticket_id')}: {str(e)}")
-            # Return minimal enrichment on error
+            
+            # Try to at least create memory for current ticket (preserve original functionality)
+            ticket_id = ticket_data.get("ticket_id", "unknown")
+            try:
+                feature_id, files_referenced = self._identify_feature_scope(ticket_data)
+                current_memory = await self._enrich_memory(ticket_id, feature_id, files_referenced)
+                self.logger.info(f"Created basic memory structures for {ticket_id} despite enrichment error")
+            except:
+                current_memory = {"related_nodes": {}, "connected_features": [], "complexity_score": 0.5}
+            
+            # Return minimal enrichment with empty MemoryEnvelope but preserve current memory creation
             return {
                 "context_enriched": False,
                 "error": str(e),
                 "enrichment_timestamp": time.time(),
-                "complexity_score": 0.5,
-                "related_files": {},
-                "connected_features": []
+                "current_memory": current_memory,  # Still try to create memory for current ticket
+                "memory_envelope": {
+                    "feature_id": "unknown",
+                    "related_nodes": {},
+                    "connected_features": [],
+                    "prior_runs": [],
+                    "file_hints": [],
+                    "complexity_score": 0.5
+                },
+                "complexity_score": current_memory.get("complexity_score", 0.5),
+                "related_files": current_memory.get("related_nodes", {}),
+                "connected_features": current_memory.get("connected_features", [])
             }
+    
+    def _identify_feature_scope(self, ticket_data: Dict[str, Any]) -> tuple[str, List[str]]:
+        """
+        Step 1: Identify feature scope
+        
+        Prefer explicit feature_id in metadata, else infer from ticket/title + files
+        using directory overlap heuristic.
+        
+        Returns:
+            tuple: (feature_id, files_referenced)
+        """
+        # Extract files from ticket data
+        files_referenced = self._extract_files_from_ticket(ticket_data)
+        
+        # Prefer explicit feature_id from PromptBuilder metadata
+        if 'metadata' in ticket_data and 'feature_id' in ticket_data['metadata']:
+            feature_id = ticket_data['metadata']['feature_id']
+        else:
+            # Infer from ticket data using existing logic  
+            feature_id = self._determine_feature_id(ticket_data, files_referenced)
+            
+        return feature_id, files_referenced
+    
+    def _locate_memory_packs(self, feature_id: str) -> List[Dict]:
+        """
+        Step 2: Locate memory packs
+        
+        Read syntheticMemory/features/<feature_id>/**/{summary.json,graph.json,files.json,agent_run.json}
+        
+        Returns:
+            List of memory packs with loaded data
+        """
+        memory_packs = []
+        
+        if self.backend != "fs":
+            return memory_packs
+            
+        feature_path = Path(self.root) / "features" / feature_id
+        
+        if not feature_path.exists():
+            self.logger.info(f"No memory packs found for feature: {feature_id}")
+            return memory_packs
+            
+        # Find all ticket directories under this feature
+        try:
+            for ticket_dir in feature_path.iterdir():
+                if ticket_dir.is_dir():
+                    pack = self._load_memory_pack(ticket_dir)
+                    if pack:
+                        memory_packs.append(pack)
+        except Exception as e:
+            self.logger.warning(f"Error scanning memory packs for {feature_id}: {str(e)}")
+            
+        return memory_packs
+    
+    def _load_memory_pack(self, ticket_dir: Path) -> Dict:
+        """
+        Load a complete memory pack from a ticket directory.
+        
+        Returns:
+            Memory pack with summary, graph, files, and agent_run data
+        """
+        pack = {
+            "ticket_id": ticket_dir.name,
+            "directory": str(ticket_dir)
+        }
+        
+        # Load each file if it exists
+        for filename in ["summary.json", "graph.json", "files.json", "agent_run.json"]:
+            file_path = ticket_dir / filename
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r') as f:
+                        pack[filename.replace('.json', '')] = json.load(f)
+                except Exception as e:
+                    self.logger.warning(f"Error loading {filename} from {ticket_dir}: {str(e)}")
+                    
+        return pack if len(pack) > 2 else None  # Must have more than just ticket_id and directory
+    
+    def _score_and_select(self, memory_packs: List[Dict], files_referenced: List[str], ticket_data: Dict) -> List[Dict]:
+        """
+        Step 3: Score & select relevant runs
+        
+        Pick last N relevant runs (recent + overlapping files).
+        Compute relevance score: w1*file_overlap + w2*recency + w3*same_template_type
+        
+        Returns:
+            List of scored and selected relevant runs
+        """
+        if not memory_packs:
+            return []
+            
+        scored_runs = []
+        template_type = ticket_data.get('template_name', 'unknown')
+        current_time = time.time()
+        
+        for pack in memory_packs:
+            score = self._calculate_relevance_score(pack, files_referenced, template_type, current_time)
+            if score > 0:  # Only include relevant runs
+                run_data = {
+                    "ticket_id": pack["ticket_id"],
+                    "score": score,
+                    "files_touched": pack.get("files", {}).get("files", []),
+                    "result": pack.get("agent_run", {}).get("result", "unknown"),
+                    "pr_url": pack.get("agent_run", {}).get("pr_url"),
+                    "pess_score": pack.get("agent_run", {}).get("pess_score"),
+                    "related_nodes": pack.get("graph", {}).get("related_nodes", {}),
+                    "connected_features": pack.get("graph", {}).get("connected_features", []),
+                    "complexity_score": pack.get("graph", {}).get("complexity_score", 0.5)
+                }
+                scored_runs.append(run_data)
+        
+        # Sort by score (descending) and return top N (default 5)
+        scored_runs.sort(key=lambda x: x["score"], reverse=True)
+        return scored_runs[:5]
+    
+    def _calculate_relevance_score(self, pack: Dict, files_referenced: List[str], template_type: str, current_time: float) -> float:
+        """
+        Calculate relevance score using: w1*file_overlap + w2*recency + w3*same_template_type
+        
+        Returns:
+            Relevance score (0.0 to 1.0)
+        """
+        # Extract pack files
+        pack_files = []
+        if "files" in pack and "files" in pack["files"]:
+            pack_files = [f.get("name", "") if isinstance(f, dict) else str(f) for f in pack["files"]["files"]]
+        
+        # Calculate file overlap (w1 = 0.5)
+        if files_referenced and pack_files:
+            overlap = len(set(files_referenced) & set(pack_files))
+            max_files = max(len(files_referenced), len(pack_files))
+            file_overlap_score = overlap / max_files if max_files > 0 else 0
+        else:
+            file_overlap_score = 0
+            
+        # Calculate recency (w2 = 0.3) - based on agent_run timestamp if available
+        recency_score = 0
+        if "agent_run" in pack and "completion_timestamp" in pack["agent_run"]:
+            try:
+                run_time = float(pack["agent_run"]["completion_timestamp"])
+                # Decay over 30 days (2592000 seconds)
+                days_old = (current_time - run_time) / 86400  # seconds to days
+                recency_score = max(0, 1 - (days_old / 30))
+            except (ValueError, TypeError):
+                pass
+                
+        # Calculate template type match (w3 = 0.2)
+        template_score = 0
+        if "summary" in pack and pack["summary"].get("template_name") == template_type:
+            template_score = 1.0
+            
+        # Weighted combination
+        relevance_score = (0.5 * file_overlap_score) + (0.3 * recency_score) + (0.2 * template_score)
+        return min(1.0, relevance_score)
+    
+    def _assemble_memory_envelope(self, feature_id: str, relevant_runs: List[Dict], files_referenced: List[str], ticket_data: Dict) -> Dict:
+        """
+        Step 4: Assemble MemoryEnvelope
+        
+        Creates the MemoryEnvelope structure as specified in the requirements.
+        
+        Returns:
+            MemoryEnvelope dict with all required fields
+        """
+        # Aggregate related nodes from all relevant runs
+        related_nodes = {}
+        connected_features = set()
+        complexity_scores = []
+        
+        for run in relevant_runs:
+            # Merge related nodes
+            if run.get("related_nodes"):
+                for node, connections in run["related_nodes"].items():
+                    if node not in related_nodes:
+                        related_nodes[node] = []
+                    related_nodes[node].extend(connections)
+                    
+            # Collect connected features
+            if run.get("connected_features"):
+                connected_features.update(run["connected_features"])
+                
+            # Collect complexity scores
+            if run.get("complexity_score"):
+                complexity_scores.append(run["complexity_score"])
+        
+        # Deduplicate related_nodes connections
+        for node in related_nodes:
+            related_nodes[node] = list(set(related_nodes[node]))
+        
+        # Calculate aggregate complexity score
+        avg_complexity = sum(complexity_scores) / len(complexity_scores) if complexity_scores else 0.5
+        
+        # Generate file hints based on files and prior runs
+        file_hints = self._generate_file_hints(files_referenced, relevant_runs)
+        
+        # Format prior runs for the envelope
+        prior_runs = []
+        for run in relevant_runs:
+            prior_run = {
+                "ticket_id": run["ticket_id"], 
+                "pr_url": run.get("pr_url"),
+                "files_touched": run.get("files_touched", []),
+                "result": run.get("result", "unknown"),
+                "score": run.get("pess_score", run.get("score", 0))
+            }
+            prior_runs.append(prior_run)
+        
+        return {
+            "feature_id": feature_id,
+            "related_nodes": related_nodes,
+            "connected_features": list(connected_features),
+            "prior_runs": prior_runs,
+            "file_hints": file_hints,
+            "complexity_score": round(avg_complexity, 2)
+        }
+    
+    def _generate_file_hints(self, files_referenced: List[str], relevant_runs: List[Dict]) -> List[Dict]:
+        """
+        Generate file hints based on files and prior run patterns.
+        
+        Returns:
+            List of file hints with path and note
+        """
+        file_hints = []
+        
+        # Group files by common patterns from prior runs
+        ccm_files = [f for f in files_referenced if "setup-runtime-config" in f or "ccm" in f.lower()]
+        resolver_files = [f for f in files_referenced if "resolver" in f.lower()]
+        test_files = [f for f in files_referenced if "test" in f.lower()]
+        
+        # Generate hints based on file types and prior run learnings
+        for ccm_file in ccm_files:
+            file_hints.append({
+                "path": ccm_file,
+                "note": "CCM pattern lives here; do not modify unrelated flags."
+            })
+            
+        for resolver_file in resolver_files:
+            file_hints.append({
+                "path": resolver_file, 
+                "note": "GraphQL resolver - maintain existing patterns and add feature flag guards."
+            })
+            
+        for test_file in test_files:
+            file_hints.append({
+                "path": test_file,
+                "note": "Add test coverage for new functionality with CCM flag variations."
+            })
+            
+        # Add hints from prior run patterns
+        for run in relevant_runs:
+            if run.get("result") == "merged" and run.get("files_touched"):
+                for touched_file in run["files_touched"]:
+                    if touched_file in files_referenced:
+                        file_hints.append({
+                            "path": touched_file,
+                            "note": f"Previously modified in {run['ticket_id']} (merged successfully)"
+                        })
+        
+        # Deduplicate hints by path
+        seen_paths = set()
+        unique_hints = []
+        for hint in file_hints:
+            if hint["path"] not in seen_paths:
+                unique_hints.append(hint)
+                seen_paths.add(hint["path"])
+                
+        return unique_hints
     
     async def _enrich_memory(self, ticket_id: str, feature_id: str, files_referenced: List[str]) -> Dict:
         """

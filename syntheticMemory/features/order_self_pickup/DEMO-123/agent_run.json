@@ -1,0 +1,11 @@
+{
+  "ticket_id": "DEMO-123",
+  "pr_url": "",
+  "pess_score": 0.95,
+  "completion_timestamp": 1759048780.391138,
+  "metadata": {
+    "session_id": "mcp_DEMO-123_fe2a1509",
+    "template_used": "feature",
+    "processing_time_ms": 19
+  }
+}

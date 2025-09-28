@@ -1,0 +1,25 @@
+{
+  "related_nodes": {
+    "Order.graphql": [],
+    "orderInputResolver.ts": [
+      "orderResolver.ts"
+    ],
+    "orderResolver.ts": [
+      "orderInputResolver.ts"
+    ],
+    "OrderInput.graphql": [],
+    "src/graphql/resolvers/orderInputResolver.ts": [
+      "src/graphql/types/Order.graphql",
+      "src/graphql/inputs/OrderInput.graphql"
+    ],
+    "src/graphql/resolvers/orderResolver.ts": [
+      "src/graphql/types/Order.graphql",
+      "src/graphql/inputs/OrderInput.graphql"
+    ]
+  },
+  "connected_features": [
+    "graphql_resolvers",
+    "graphql_schema"
+  ],
+  "complexity_score": 1.0
+}

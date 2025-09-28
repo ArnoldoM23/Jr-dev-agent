@@ -22,6 +22,7 @@ from langgraph_mcp.services.prompt_builder import PromptBuilder
 from langgraph_mcp.services.template_engine import TemplateEngine
 from langgraph_mcp.services.synthetic_memory import SyntheticMemory
 from langgraph_mcp.services.pess_client import PESSClient
+from langgraph_mcp.services.prompt_composer import PromptComposer
 
 
 class JrDevState(TypedDict):
@@ -69,6 +70,7 @@ class JrDevGraph:
         self.jira_prompt_node = JiraPromptNode()
         self.synthetic_memory = SyntheticMemory()
         self.pess_client = PESSClient()
+        self.prompt_composer = PromptComposer()
         
     async def initialize(self):
         """Initialize the LangGraph workflow"""
@@ -79,6 +81,7 @@ class JrDevGraph:
         await self.template_engine.initialize()
         await self.synthetic_memory.initialize()
         await self.pess_client.initialize()
+        await self.prompt_composer.initialize()
         
         # Build the graph
         self.graph = self._build_graph()
@@ -288,27 +291,88 @@ class JrDevGraph:
         
         return state
     
+    def _extract_files_to_modify(self, ticket_data: Dict[str, Any]) -> List[str]:
+        """
+        Extract files to modify from ticket data.
+        
+        Returns list of files that the agent should focus on.
+        """
+        files = []
+        
+        # Check common file fields in ticket data
+        if 'files_affected' in ticket_data and ticket_data['files_affected']:
+            if isinstance(ticket_data['files_affected'], list):
+                files.extend(ticket_data['files_affected'])
+            elif isinstance(ticket_data['files_affected'], str):
+                files.append(ticket_data['files_affected'])
+        
+        # Check metadata for file references  
+        if 'metadata' in ticket_data and 'file_references' in ticket_data['metadata']:
+            files.extend(ticket_data['metadata']['file_references'])
+        
+        # Parse files from description if available
+        description = ticket_data.get('description', '')
+        if description:
+            # Simple extraction of file paths from description
+            import re
+            # Look for file patterns like src/path/to/file.ts or similar
+            file_patterns = re.findall(r'[\w\-/]+\.[a-zA-Z]{1,4}', description)
+            files.extend(file_patterns)
+        
+        # Deduplicate and filter out invalid files
+        unique_files = []
+        seen = set()
+        for file in files:
+            if file and file not in seen and '.' in file:  # Must have an extension
+                unique_files.append(file)
+                seen.add(file)
+        
+        return unique_files
+    
     async def _generate_prompt_node(self, state: JrDevState) -> JrDevState:
         """
-        Node: Generate the final prompt
+        Node: Generate the final prompt with Memory Context and Read-before-edit sections
         
-        This node uses the PromptBuilder to generate the final AI-optimized prompt
-        using the selected template and enriched context.
+        This node implements the enhanced prompt generation with:
+        1. Base prompt from PromptBuilder 
+        2. Memory Context from MemoryEnvelope
+        3. Read-before-edit guidance for Agent Mode
         """
         try:
             self.logger.info(f"Generating prompt for {state['ticket_id']}")
             
-            # Generate prompt using PromptBuilder
-            prompt = await self.prompt_builder.generate_prompt(
+            # Generate base prompt using PromptBuilder
+            base_prompt = await self.prompt_builder.generate_prompt(
                 template_name=state['template_used'],
                 ticket_data=state['ticket_data'],
                 enrichment_data=state['metadata'].get('enrichment', {})
             )
             
-            # Generate hash for the prompt
-            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
+            # Extract MemoryEnvelope from enrichment data
+            enrichment_data = state['metadata'].get('enrichment', {})
+            memory_envelope = enrichment_data.get('memory_envelope', {})
             
-            state['prompt'] = prompt
+            # Extract files to modify from ticket data
+            files_to_modify = self._extract_files_to_modify(state['ticket_data'])
+            
+            # Compose final prompt with Memory Context and Read-before-edit sections
+            if memory_envelope and memory_envelope.get('feature_id') != 'unknown':
+                enhanced_prompt = self.prompt_composer.compose_final_prompt(
+                    base_prompt=base_prompt,
+                    memory_envelope=memory_envelope,
+                    files_to_modify=files_to_modify
+                )
+                self.logger.info(f"Enhanced prompt with memory context for feature: {memory_envelope.get('feature_id')}")
+            else:
+                # Add minimal memory context when no memory available
+                no_memory_context = self.prompt_composer.format_memory_context_for_no_memory()
+                enhanced_prompt = f"{base_prompt}\n\n{no_memory_context}"
+                self.logger.info(f"Generated prompt with no prior memory context")
+            
+            # Generate hash from the enhanced prompt
+            prompt_hash = hashlib.sha256(enhanced_prompt.encode()).hexdigest()[:16]
+            
+            state['prompt'] = enhanced_prompt
             state['prompt_hash'] = prompt_hash
             state['current_step'] = "generate_prompt"
             state['steps_completed'].append("generate_prompt")
@@ -320,7 +384,7 @@ class JrDevGraph:
                     session_id=state['session_id'],
                     prompt_hash=prompt_hash,
                     template_used=state['template_used'],
-                    enrichment_data=state['metadata'].get('enrichment', {})
+                    enrichment_data=enrichment_data
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to record prompt generation in PESS: {str(e)}")
