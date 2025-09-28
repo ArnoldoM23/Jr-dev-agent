@@ -1,228 +1,236 @@
-# 🚀 Jr Dev Agent
+# 🚀 Jr Dev Agent v2 (MCP-Only)
 
-**AI-Powered Junior Developer Agent with Copilot Agent Mode & LangGraph MCP Controller**
+**AI-Powered Development Agent via Model Context Protocol (MCP)**
 
-Transform Jira tickets into working pull requests through AI-powered automation. Simply type `/jr_dev CEPG-12345` in VS Code and receive a complete PR with minimal manual intervention.
+Transform Jira tickets into working pull requests through AI automation. Simply type `/jrdev CEPG-12345` in any MCP-compatible IDE and receive a complete, agent-ready prompt for immediate execution.
 
-## 🏗️ System Architecture
+## 🏗️ v2 Architecture (MCP-Only)
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   VS Code       │    │   LangGraph     │    │   PromptBuilder │
-│   Extension     │◄──►│   MCP Server    │◄──►│   Service       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
-                    ┌───────────┼───────────┐
-                    │           │           │
-            ┌───────▼────┐ ┌───▼────┐ ┌───▼────────────┐
-            │    PESS    │ │Synthetic│ │    Copilot     │
-            │  Scoring   │ │ Memory  │ │  Agent Mode    │
-            │   System   │ │ System  │ │   Integration  │
-            └────────────┘ └────────┘ └────────────────┘
+│   VS Code       │    │   Jr Dev Agent  │    │   Jira API      │
+│   Cursor        │◄──►│   MCP Server    │◄──►│   Integration   │
+│   Windsurf      │    │                 │    │                 │
+│   Any MCP IDE   │    └─────────┬───────┘    └─────────────────┘
+└─────────────────┘              │
+                                 │
+                    ┌────────────┼────────────┐
+                    │            │            │
+            ┌───────▼────┐ ┌─────▼─────┐ ┌───▼────────────┐
+            │    PESS    │ │ Synthetic │ │   PromptBuilder│
+            │  Scoring   │ │  Memory   │ │   + Templates  │
+            │   System   │ │  (MVP FS) │ │                │
+            └────────────┘ └───────────┘ └────────────────┘
 ```
 
 ## 🧠 Core Components
 
-### 1. 🧠 LangGraph MCP Server
-Central orchestration engine with Router + Workers pattern using LangGraph DAG
+### 1. 🎯 **MCP Orchestrator** 
+Central request router and workflow coordinator for `/jrdev` commands across all IDEs
 
-### 2. 📊 PESS (Prompt Effectiveness Scoring System)
-Intelligence layer with 8-dimensional scoring system for continuous improvement
+### 2. 🧠 **Synthetic Memory MVP**
+Filesystem-based knowledge store (`syntheticMemory/`) with automatic context enrichment and vector DB upgrade path
 
-### 3. 🧱 PromptBuilder
-Template-based prompt generation with 9 template families for different task types
+### 3. 📊 **PESS Integration** 
+Prompt Effectiveness Scoring System for continuous improvement and telemetry
 
-### 4. 🧠 Synthetic Memory System
-Long-term contextual understanding using Qdrant vector database for RAG capabilities
+### 4. 🧱 **PromptBuilder (Hybrid)**
+Deterministic template filling with optional LLM assist for tone/scoping/edge cases
 
-### 5. 💻 VS Code Extension
-Developer interface with seamless Copilot Chat integration
+### 5. 🔗 **Jira Integration**
+Fetches ticket metadata including YAML prompt templates embedded in descriptions
 
-### 6. 🌀 Session Management
-Stateful lifecycle tracking with follow-up prompt support
-
-### 7. 🔁 Template Intelligence
-Self-improving template evolution with automated optimization
-
-### 8. 🔧 Infrastructure & DevOps
-Supporting cloud infrastructure with monitoring and security
+### 6. 🌐 **Cross-IDE Compatibility**
+Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Python 3.11+
+- MCP-compatible IDE (VS Code, Cursor, Windsurf)
+- Jira access (or use fallback mode)
+
+### 1. Installation
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd Jr-dev-agent
-
-# Setup development environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+git clone https://github.com/your-org/jr-dev-agent.git
+cd jr-dev-agent
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-# Setup environment variables
-cp .env.example .env
-# Edit .env with your configuration
+### 2. Configuration
+```bash
+cp config.json.example config.json
+# Edit config.json with your Jira settings
+```
 
-# Start the development environment
-docker-compose up -d
+### 3. Start Server
+```bash
+python scripts/start_mcp_gateway.py --dev
+```
 
-# Run the LangGraph MCP Server
-python -m langgraph_mcp.server
+### 4. IDE Setup
+Configure your MCP-compatible IDE to connect to: `http://localhost:8000`
+
+### 5. Usage
+In your IDE chat, type:
+```
+/jrdev CEPG-12345
+```
+
+The system will:
+1. 🎫 Fetch Jira ticket metadata
+2. 🧱 Build structured prompt using templates  
+3. 🧠 Enrich with Synthetic Memory context
+4. 📝 Return ready-to-run prompt for Agent Mode
+5. ⚡ You press Enter → AI Agent executes changes
+
+## 📋 Commands
+
+| Command | Description |
+|---------|-------------|
+| `/jrdev TICKET-ID` | Generate agent-ready prompt for ticket |
+| Health endpoint: `GET /health` | Check server status |
+| Finalize: `POST /v2/jrdev/finalize` | Complete session & trigger PESS scoring |
+
+## 🧠 Synthetic Memory System
+
+The system automatically creates a learning knowledge base:
+
+```
+syntheticMemory/
+├── features/
+│   ├── new_feature/
+│   │   └── CEPG-12345/
+│   │       ├── summary.json      # Ticket metadata
+│   │       ├── files.json        # File relationships  
+│   │       ├── graph.json        # Connected features
+│   │       ├── agent_run.json    # PESS results
+│   │       └── README.md         # Human context
+│   └── ...
+```
+
+**Memory Enrichment** automatically adds context like:
+- 🔗 Related files and features you've worked on before
+- 📊 Complexity scores and relationships
+- 🎯 Connected features and dependencies
+
+## 📊 PESS Scoring
+
+After each PR, get automated feedback:
+- **Prompt Score**: How effective was the generated prompt?
+- **Clarity Rating**: Was the instruction clear and actionable?
+- **Risk Score**: Potential issues or improvements
+- **Recommendations**: How to improve future prompts
+
+## 🧪 Development & Testing
+
+### Run Tests
+```bash
+# Test v2 MCP Orchestrator
+python scripts/test_v2_mcp_orchestrator.py
+
+# Test v1 compatibility  
+python scripts/test_mcp_gateway.py
+
+# Test with fallback data
+python scripts/test_mvp_fallback.py
+```
+
+### Development Mode
+```bash
+export DEV_MODE=true
+python scripts/start_mcp_gateway.py --dev
 ```
 
 ## 📁 Project Structure
 
 ```
-Jr-dev-agent/
-├── 🧠 langgraph_mcp/          # LangGraph MCP Server
-│   ├── nodes/                 # LangGraph DAG nodes
-│   ├── api/                   # FastAPI endpoints
-│   ├── fallback/              # Jira fallback files
-│   └── server.py              # Main server entry point
-├── 📊 pess/                   # PESS Scoring System
-│   ├── pipeline/              # 5-stage scoring pipeline
-│   ├── dimensions/            # 8-dimensional scoring
-│   └── database/              # Score storage
-├── 🧱 promptbuilder/          # PromptBuilder Service
-│   ├── templates/             # 9 template families
-│   ├── engine/                # Template processing
-│   └── api/                   # Template generation API
-├── 🧠 synthetic_memory/       # Synthetic Memory System
-│   ├── embeddings/            # Vector embeddings
-│   ├── qdrant/                # Qdrant vector database
-│   ├── graph/                 # File-feature graph
-│   └── cli/                   # SMS debug tools
-├── 💻 vscode_extension/       # VS Code Extension
-│   ├── src/                   # TypeScript source
-│   ├── package.json           # Extension manifest
-│   └── webpack.config.js      # Build configuration
-├── 🌀 session_management/     # Session Management
-│   ├── lifecycle/             # Session lifecycle
-│   ├── events/                # Event tracking
-│   └── finalization/          # Session finalization
-├── 🔁 template_intelligence/  # Template Intelligence
-│   ├── updater/               # Template updater agent
-│   ├── splitter/              # Subtask split agent
-│   └── analyzer/              # Performance analyzer
-├── 🔧 infrastructure/         # Infrastructure & DevOps
-│   ├── docker/                # Docker configurations
-│   ├── k8s/                   # Kubernetes manifests
-│   ├── terraform/             # Infrastructure as Code
-│   └── monitoring/            # Observability setup
-├── 📋 docs/                   # Documentation
-├── 🧪 tests/                  # Test suites
-├── 🔧 scripts/                # Utility scripts
-└── 📦 config/                 # Configuration files
+jr-dev-agent/
+├── config.json              # Configuration
+├── langgraph_mcp/           # Main application
+│   ├── server/main.py       # FastAPI server
+│   ├── mcp/                 # v2 MCP Orchestrator
+│   │   ├── handlers/        # Command handlers
+│   │   ├── jira_client.py   # Jira integration
+│   │   ├── prompt_builder.py # Hybrid prompt builder
+│   │   ├── memory.py        # Synthetic Memory
+│   │   └── pess_client.py   # PESS integration
+│   ├── graph/               # LangGraph workflow (v1)
+│   ├── services/            # Core services
+│   └── fallback/            # Development fallbacks
+├── syntheticMemory/         # Learning knowledge base
+├── scripts/                 # Development tools
+└── tests/                   # Test suites
 ```
 
-## 🔧 Development Environment
+## 🔧 Configuration
 
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- Docker & Docker Compose
-- PostgreSQL
-- Redis
+Key configuration options in `config.json`:
 
-### Environment Setup
-
-1. **Clone and Setup**
-```bash
-git clone <repository-url>
-cd Jr-dev-agent
-python -m venv venv
-source venv/bin/activate
+```json
+{
+  "memory": {
+    "backend": "fs",              // "fs" or "vector"
+    "fs": {
+      "root_dir": "syntheticMemory"
+    }
+  },
+  "jira": {
+    "base_url": "https://your.atlassian.net",
+    "token": "your-token"
+  },
+  "pess": {
+    "url": "https://your-pess-server.com",
+    "enabled": true
+  }
+}
 ```
-
-2. **Install Dependencies**
-```bash
-pip install -r requirements.txt
-cd vscode_extension && npm install
-```
-
-3. **Configure Environment**
-```bash
-cp .env.example .env
-# Edit .env with your OpenAI API key, Jira credentials, etc.
-```
-
-4. **Start Services**
-```bash
-docker-compose up -d  # Start PostgreSQL, Redis, Qdrant
-python -m langgraph_mcp.server  # Start MCP Server
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run specific component tests
-pytest tests/test_langgraph_mcp/
-pytest tests/test_pess/
-pytest tests/test_promptbuilder/
-
-# Run integration tests
-pytest tests/integration/
-```
-
-## 📊 Monitoring & Observability
-
-- **Health Checks**: `http://localhost:8000/health`
-- **Metrics**: Prometheus metrics at `http://localhost:8000/metrics`
-- **Logs**: Centralized logging with structured JSON format
-- **Tracing**: Distributed tracing with OpenTelemetry
-
-## 🔒 Security
-
-- API key authentication for all endpoints
-- Secure token management for Jira integration
-- Data encryption at rest and in transit
-- No PII storage in embeddings or logs
 
 ## 🚀 Deployment
 
-### Local Development
+### Docker
 ```bash
-docker-compose up -d
-python -m langgraph_mcp.server
+docker build -t jr-dev-agent -f langgraph_mcp/Dockerfile .
+docker run -p 8000:8000 jr-dev-agent
 ```
 
 ### Production
-```bash
-# Build and deploy with Kubernetes
-kubectl apply -f infrastructure/k8s/
-```
+- Set `DEV_MODE=false`
+- Configure proper Jira credentials
+- Set up PESS scoring endpoint
+- Enable vector DB for Synthetic Memory scaling
 
-## 📖 Documentation
+## 🔄 Migration from v1
 
-- **Architecture**: See `docs/architecture.md`
-- **API Reference**: See `docs/api.md`
-- **User Guide**: See `docs/user-guide.md`
-- **Contributing**: See `docs/contributing.md`
+v2 maintains full backwards compatibility with v1 while adding:
+- ✅ Cross-IDE MCP compatibility (vs. VS Code-only)
+- ✅ Simplified single-server architecture  
+- ✅ Filesystem-based Synthetic Memory MVP
+- ✅ Improved PESS integration
+- ✅ No extension installation required
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Run tests: `python scripts/test_v2_mcp_orchestrator.py`
+4. Commit changes: `git commit -m 'Add amazing feature'`
+5. Push branch: `git push origin feature/amazing-feature`
+6. Open Pull Request
 
-## 📝 License
+## 📄 License
 
-This project is proprietary and confidential. All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-For support and questions:
-- Internal Documentation: `docs/`
-- Issue Tracker: GitHub Issues
-- Team Contact: [team contact info]
+- 📧 Email: support@jr-dev-agent.com
+- 💬 Slack: #jr-dev-agent
+- 🐛 Issues: [GitHub Issues](https://github.com/your-org/jr-dev-agent/issues)
+- 📖 Docs: [Documentation](https://docs.jr-dev-agent.com)
 
 ---
 
-**🎯 Ready to transform how we develop software with AI-powered automation!** 
+**🎉 Jr Dev Agent v2 - From Jira Ticket to Working PR in seconds!**

@@ -19,6 +19,7 @@ from langgraph_mcp.utils.load_ticket_metadata import load_ticket_metadata
 from langgraph_mcp.models.session import SessionManager
 from langgraph_mcp.models.ticket import TicketMetadata
 from langgraph_mcp.models.prompt import PromptRequest, PromptResponse
+from langgraph_mcp.mcp_gateway import add_mcp_routes
 
 # Configure logging
 logging.basicConfig(
@@ -29,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Jr Dev Agent - LangGraph MCP Server",
-    description="AI-powered junior developer agent orchestration server",
-    version="1.0.0",
+    title="Jr Dev Agent - Gateway MCP Server",
+    description="AI-powered junior developer agent with cross-IDE support via MCP protocol",
+    version="2.0.0-mvp",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -241,6 +242,9 @@ async def get_debug_health():
         }
     }
 
+# v2 functionality now integrated into enhanced LangGraph workflow
+# Available through MCP Gateway with Synthetic Memory and PESS integration
+
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
@@ -252,6 +256,10 @@ async def startup_event():
     
     # Initialize session manager
     session_manager.initialize()
+    
+    # Add MCP Gateway routes (enhanced with v2 Synthetic Memory & PESS integration)
+    add_mcp_routes(app, jr_dev_graph, session_manager)
+    logger.info("✅ MCP Gateway routes added with v2 enhancements (Synthetic Memory + PESS)")
     
     logger.info("✅ Jr Dev Agent MCP Server ready!")
 

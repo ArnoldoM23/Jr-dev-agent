@@ -1,0 +1,25 @@
+{
+  "memory": {
+    "backend": "fs",
+    "fs": {
+      "root_dir": "syntheticMemory"
+    },
+    "vector": {
+      "provider": "pinecone",
+      "index": "jrdev-memory",
+      "api_key": "env:PINECONE_API_KEY"
+    }
+  },
+  "jira": {
+    "base_url": "env:JIRA_BASE_URL",
+    "token": "env:JIRA_TOKEN"
+  },
+  "pess": {
+    "url": "env:PESS_URL",
+    "api_key": "env:PESS_API_KEY"
+  },
+  "prompt_builder": {
+    "use_llm_assist": false,
+    "llm_model": "gpt-4"
+  }
+}

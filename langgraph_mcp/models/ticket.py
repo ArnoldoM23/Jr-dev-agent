@@ -61,7 +61,7 @@ class TicketMetadata(BaseModel):
     
     class Config:
         """Pydantic configuration"""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "ticket_id": "CEPG-12345",
                 "template_name": "feature",
@@ -111,7 +111,7 @@ class TicketEnrichmentData(BaseModel):
     
     class Config:
         """Pydantic configuration"""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "base_ticket": {
                     "ticket_id": "CEPG-12345",
@@ -153,7 +153,7 @@ class TicketProcessingResult(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "ticket_id": "CEPG-12345",
                 "session_id": "jr_dev_CEPG-12345_abc123",

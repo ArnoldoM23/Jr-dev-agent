@@ -1,0 +1,11 @@
+{
+  "ticket_id": "CEPG-67890",
+  "pr_url": "",
+  "pess_score": 0.95,
+  "completion_timestamp": 1759045604.3908732,
+  "metadata": {
+    "session_id": "mcp_CEPG-67890_abe9a423",
+    "template_used": "feature",
+    "processing_time_ms": 13
+  }
+}
