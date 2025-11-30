@@ -12,15 +12,15 @@ Version: 1.0
 
 from typing import Dict, Any, Annotated
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode
+from jr_dev_agent.graph.message import add_messages
+from jr_dev_agent.prebuilt import ToolNode
 import structlog
 from dataclasses import dataclass
 from datetime import datetime
 import os
 
 # Import our fallback system
-from ..utils.load_ticket_metadata import (
+from jr_dev_agent.utils.load_ticket_metadata import (
     load_ticket_metadata,
     validate_ticket_metadata,
     get_fallback_status,

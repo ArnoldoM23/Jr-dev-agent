@@ -1,4 +1,11 @@
 input OrderInput {
-  pickup_store_id: String
+  """
+  ID of the store where the order will be picked up.
+  """
+  pickup_store_id: ID
+
+  """
+  ISO-8601 timestamp indicating when the order will be picked up.
+  """
   pickup_time: String
 }

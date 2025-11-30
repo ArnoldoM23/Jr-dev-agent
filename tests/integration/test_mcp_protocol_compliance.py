@@ -2,7 +2,7 @@
 import pytest
 import json
 from fastapi.testclient import TestClient
-from langgraph_mcp.server.main import app
+from jr_dev_agent.server.main import app
 
 @pytest.fixture(scope="module")
 def client():

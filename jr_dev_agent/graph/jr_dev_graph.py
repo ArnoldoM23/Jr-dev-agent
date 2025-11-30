@@ -16,13 +16,13 @@ import asyncio
 from langgraph.graph import StateGraph, END
 from typing_extensions import TypedDict
 
-from langgraph_mcp.utils.load_ticket_metadata import load_ticket_metadata
-from langgraph_mcp.nodes.jira_prompt_node import JiraPromptNode
-from langgraph_mcp.services.prompt_builder import PromptBuilder
-from langgraph_mcp.services.template_engine import TemplateEngine
-from langgraph_mcp.services.synthetic_memory import SyntheticMemory
-from langgraph_mcp.services.pess_client import PESSClient
-from langgraph_mcp.services.prompt_composer import PromptComposer
+from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata
+from jr_dev_agent.nodes.jira_prompt_node import JiraPromptNode
+from jr_dev_agent.services.prompt_builder import PromptBuilder
+from jr_dev_agent.services.template_engine import TemplateEngine
+from jr_dev_agent.services.synthetic_memory import SyntheticMemory
+from jr_dev_agent.services.pess_client import PESSClient
+from jr_dev_agent.services.prompt_composer import PromptComposer
 
 
 class JrDevState(TypedDict):

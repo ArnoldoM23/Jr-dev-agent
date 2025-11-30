@@ -25,6 +25,16 @@ describe('orderResolver', () => {
       }).toThrow('Pickup time is required when store pickup is selected');
     });
 
+    it('should require pickup_store_id when pickup_time is provided', () => {
+      const input = {
+        pickup_time: '2023-10-27T10:00:00Z'
+      };
+
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup store ID is required when store pickup is selected');
+    });
+
     it('should throw error if pickup_time is out of operating hours', () => {
       const input = {
         pickup_store_id: '123',
