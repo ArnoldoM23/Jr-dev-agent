@@ -75,8 +75,12 @@ def test_prompts_endpoints(client: TestClient):
     assert "error" not in get_body
     result = get_body["result"]
     assert result["description"] is not None
-    assert len(result["messages"]) == 1
-    message = result["messages"][0]
+    
+    # We now return 2 messages (assistant intro + user prompt)
+    assert len(result["messages"]) == 2
+    assert result["messages"][0]["role"] == "assistant"
+    
+    message = result["messages"][1]
     assert message["role"] == "user"
     
     # Verify content structure (list of text content)

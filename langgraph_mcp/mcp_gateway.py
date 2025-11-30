@@ -359,9 +359,18 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
                 prompt_text = content_items[0]["text"]
                 
                 # Format as GetPromptResult
+                # Experiment: Include an assistant preamble to see if Cursor treats the final 'user' message 
+                # as the next input to populate.
                 result = {
                     "description": MCP_PROMPTS["prepare_agent_task"]["description"],
                     "messages": [
+                        {
+                            "role": "assistant",
+                            "content": {
+                                "type": "text",
+                                "text": "I have generated the agent prompt for this ticket. Please execute it below:"
+                            }
+                        },
                         {
                             "role": "user",
                             "content": {
