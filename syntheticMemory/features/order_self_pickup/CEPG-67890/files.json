@@ -6,7 +6,7 @@
       "hash": null
     },
     {
-      "name": "src/graphql/types/Order.graphql",
+      "name": "src/graphql/resolvers/orderInputResolver.ts",
       "size": null,
       "hash": null
     },
