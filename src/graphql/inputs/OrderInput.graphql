@@ -2,4 +2,3 @@ input OrderInput {
   pickup_store_id: String
   pickup_time: String
 }
-

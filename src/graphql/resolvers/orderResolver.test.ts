@@ -36,6 +36,27 @@ describe('orderResolver', () => {
       }).toThrow('Pickup time must be within store operating hours (09:00 - 21:00)');
     });
 
+    it('should allow pickup time at start of operating hours', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T09:00:00Z' // 9 AM
+      };
+      
+      const result = orderResolver.Mutation.createOrder(null, { input });
+      expect(result.pickup_store).toBe('Store-123');
+    });
+
+    it('should throw error if pickup_time is after operating hours', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T21:00:00Z' // 9 PM
+      };
+      
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup time must be within store operating hours (09:00 - 21:00)');
+    });
+
     it('should create a regular order without pickup', () => {
       const input = {
         someOtherField: 'value'
