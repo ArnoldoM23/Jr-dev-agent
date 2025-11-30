@@ -43,8 +43,17 @@ def test_prepare_and_finalize_flow(client: TestClient, monkeypatch):
     prepare_response = client.post("/mcp/tools/call", json=prepare_payload)
     assert prepare_response.status_code == 200
     prepare_body = prepare_response.json()["result"]
-    assert prepare_body["metadata"]["ticket_id"] == ticket_id
-    files_to_modify = prepare_body["metadata"]["files_to_modify"]
+    
+    # Handle v2 structure (content + _meta)
+    if "_meta" in prepare_body:
+        metadata = prepare_body["_meta"]["metadata"]
+        files_to_modify = metadata["files_to_modify"]
+    else:
+        # Fallback for v1 structure
+        metadata = prepare_body["metadata"]
+        files_to_modify = metadata["files_to_modify"]
+        
+    assert metadata["ticket_id"] == ticket_id
 
     finalize_payload = {
         "jsonrpc": "2.0",
