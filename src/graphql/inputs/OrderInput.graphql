@@ -1,4 +1,11 @@
 input OrderInput {
-  pickup_store_id: String
+  """
+  Store identifier that toggles the pickup flow when present.
+  """
+  pickup_store_id: ID
+
+  """
+  ISO-8601 timestamp representing the desired pickup time.
+  """
   pickup_time: String
 }

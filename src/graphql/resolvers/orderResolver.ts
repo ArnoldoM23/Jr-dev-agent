@@ -1,4 +1,4 @@
-import { validateOrderInput } from './orderInputResolver';
+import { getPickupStoreMetadata, validateOrderInput } from './orderInputResolver';
 
 export const orderResolver = {
   Query: {
@@ -13,6 +13,8 @@ export const orderResolver = {
       validateOrderInput(input);
       
       // create order logic
+      const pickupStore = getPickupStoreMetadata(input.pickup_store_id);
+
       return { 
         id: "123", 
         ...input, 
@@ -20,7 +22,7 @@ export const orderResolver = {
         status: "PENDING", 
         createdAt: new Date().toISOString(),
         // Map input fields to schema fields
-        pickup_store: input.pickup_store_id ? `Store-${input.pickup_store_id}` : null,
+        pickup_store: pickupStore ? pickupStore.name : null,
         pickup_time: input.pickup_time
       };
     }

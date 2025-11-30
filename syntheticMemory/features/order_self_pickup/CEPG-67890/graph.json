@@ -1,5 +1,6 @@
 {
   "related_nodes": {
+    "OrderInput.graphql": [],
     "Order.graphql": [],
     "orderInputResolver.ts": [
       "orderResolver.ts"
@@ -7,14 +8,13 @@
     "orderResolver.ts": [
       "orderInputResolver.ts"
     ],
-    "OrderInput.graphql": [],
     "src/graphql/resolvers/orderInputResolver.ts": [
-      "src/graphql/types/Order.graphql",
-      "src/graphql/inputs/OrderInput.graphql"
+      "src/graphql/inputs/OrderInput.graphql",
+      "src/graphql/types/Order.graphql"
     ],
     "src/graphql/resolvers/orderResolver.ts": [
-      "src/graphql/types/Order.graphql",
-      "src/graphql/inputs/OrderInput.graphql"
+      "src/graphql/inputs/OrderInput.graphql",
+      "src/graphql/types/Order.graphql"
     ]
   },
   "connected_features": [

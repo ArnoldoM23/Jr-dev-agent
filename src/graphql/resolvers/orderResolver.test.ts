@@ -25,6 +25,16 @@ describe('orderResolver', () => {
       }).toThrow('Pickup time is required when store pickup is selected');
     });
 
+    it('should require pickup_store_id when pickup_time is provided', () => {
+      const input = {
+        pickup_time: '2023-10-27T10:00:00Z'
+      };
+
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup store ID is required when store pickup is selected');
+    });
+
     it('should throw error if pickup_time is out of operating hours', () => {
       const input = {
         pickup_store_id: '123',
@@ -55,6 +65,28 @@ describe('orderResolver', () => {
       expect(() => {
         orderResolver.Mutation.createOrder(null, { input });
       }).toThrow('Pickup time must be within store operating hours (09:00 - 21:00)');
+    });
+
+    it('should throw error for pickup requests at unavailable stores', () => {
+      const input = {
+        pickup_store_id: '999',
+        pickup_time: '2023-10-27T10:00:00Z'
+      };
+
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Selected store is not available for pickup');
+    });
+
+    it('should throw error when pickup_time is not a valid date', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: 'invalid-date'
+      };
+
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup time must be a valid ISO-8601 date');
     });
 
     it('should create a regular order without pickup', () => {

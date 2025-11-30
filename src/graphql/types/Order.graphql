@@ -2,7 +2,14 @@ type Order {
   id: ID!
   total: Float!
   status: String!
-  createdAt: String!
-  pickup_store: String
+
+  """
+  ISO-8601 timestamp indicating when the order is ready for pickup.
+  """
   pickup_time: String
+
+  """
+  Human friendly store label derived from the pickup_store_id.
+  """
+  pickup_store: String
 }

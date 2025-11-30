@@ -74,7 +74,9 @@ def test_prepare_and_finalize_flow(client: TestClient, monkeypatch):
     finalize_response = client.post("/mcp/tools/call", json=finalize_payload)
     assert finalize_response.status_code == 200
     finalize_body = finalize_response.json()["result"]
-    assert finalize_body["pess_score"] >= 0.0
+    
+    assert "_meta" in finalize_body
+    assert finalize_body["_meta"]["pess_score"] >= 0.0
 
     # Verify that a Confluence payload was produced.
     confluence_path = Path("syntheticMemory") / "_confluence_updates" / f"{ticket_id}.json"
