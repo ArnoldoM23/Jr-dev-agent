@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 # Force fallback mode so Jira MCP calls are not attempted during tests.
 os.environ.setdefault("DEV_MODE", "true")
 
-from langgraph_mcp.server.main import app  # noqa: E402
+from jr_dev_agent.server.main import app  # noqa: E402
 
 
 @pytest.fixture(scope="module")

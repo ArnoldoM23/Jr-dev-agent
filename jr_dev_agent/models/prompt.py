@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from langgraph_mcp.models.ticket import TicketMetadata
+from jr_dev_agent.models.ticket import TicketMetadata
 
 
 class PromptRequest(BaseModel):

@@ -242,7 +242,7 @@ Coverage is tracked for all service modules:
 - `template_intelligence/`
 - `session_management/`
 - `synthetic_memory/`
-- `langgraph_mcp/`
+- `jr_dev_agent/`
 
 ## Troubleshooting
 

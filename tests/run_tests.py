@@ -223,7 +223,7 @@ class TestRunner:
             "--cov=template_intelligence",
             "--cov=session_management",
             "--cov=synthetic_memory",
-            "--cov=langgraph_mcp",
+            "--cov=jr_dev_agent",
             "--cov-report=html",
             "--cov-report=term-missing",
             "--cov-report=xml",

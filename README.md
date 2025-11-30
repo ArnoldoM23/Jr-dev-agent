@@ -196,7 +196,7 @@ After each PR, get automated feedback:
 ```
 jr-dev-agent/
 ├── config.json              # Configuration
-├── langgraph_mcp/           # Main application
+├── jr_dev_agent/           # Main application
 │   ├── server/main.py       # FastAPI server
 │   ├── mcp/                 # v2 MCP Orchestrator
 │   │   ├── handlers/        # Command handlers
@@ -223,7 +223,7 @@ export CONFLUENCE_MCP_URL="https://mcp-confluence.stage.walmart.com/mcp/"
 export CONFLUENCE_MCP_TOKEN="Bearer <PINGFED_TOKEN>"
 ```
 
-If these are not set the gateway automatically falls back to the local `langgraph_mcp/fallback/jira_prompt.json` ticket data and writes Confluence updates to `syntheticMemory/_confluence_updates/`.
+If these are not set the gateway automatically falls back to the local `jr_dev_agent/fallback/jira_prompt.json` ticket data and writes Confluence updates to `syntheticMemory/_confluence_updates/`.
 
 The default `config.json` controls the synthetic memory backend:
 
@@ -250,7 +250,7 @@ The default `config.json` controls the synthetic memory backend:
 
 ### Docker
 ```bash
-docker build -t jr-dev-agent -f langgraph_mcp/Dockerfile .
+docker build -t jr-dev-agent -f jr_dev_agent/Dockerfile .
 docker run -p 8000:8000 jr-dev-agent
 ```
 

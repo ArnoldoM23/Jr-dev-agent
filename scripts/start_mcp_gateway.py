@@ -49,7 +49,7 @@ class MCPGatewayLauncher:
             logger.info("✅ Development mode enabled")
         
         # Ensure fallback file exists
-        fallback_dir = project_root / "langgraph_mcp" / "fallback"
+        fallback_dir = project_root / "jr_dev_agent" / "fallback"
         fallback_file = fallback_dir / "jira_prompt.json"
         
         if not fallback_file.exists():
@@ -115,7 +115,7 @@ class MCPGatewayLauncher:
         
         # Server configuration
         config = uvicorn.Config(
-            "langgraph_mcp.server.main:app",
+            "jr_dev_agent.server.main:app",
             host=host,
             port=port,
             log_level="debug" if dev_mode else "info",

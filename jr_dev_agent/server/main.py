@@ -14,12 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
 
-from langgraph_mcp.graph.jr_dev_graph import JrDevGraph
-from langgraph_mcp.utils.load_ticket_metadata import load_ticket_metadata
-from langgraph_mcp.models.session import SessionManager
-from langgraph_mcp.models.ticket import TicketMetadata
-from langgraph_mcp.models.prompt import PromptRequest, PromptResponse
-from langgraph_mcp.mcp_gateway import add_mcp_routes
+from jr_dev_agent.graph.jr_dev_graph import JrDevGraph
+from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata
+from jr_dev_agent.models.session import SessionManager
+from jr_dev_agent.models.ticket import TicketMetadata
+from jr_dev_agent.models.prompt import PromptRequest, PromptResponse
+from jr_dev_agent.server.mcp_gateway import add_mcp_routes
 
 # Configure logging
 logging.basicConfig(
@@ -285,9 +285,9 @@ if __name__ == "__main__":
     logger.info(f"Development mode: {dev_mode}")
     
     uvicorn.run(
-        "langgraph_mcp.server.main:app",
+        "jr_dev_agent.server.main:app",
         host=host,
         port=port,
         reload=dev_mode,
         log_level="info"
-    ) 
+    )

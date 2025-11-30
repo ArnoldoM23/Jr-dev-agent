@@ -24,7 +24,7 @@ from datetime import datetime
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from langgraph_mcp.utils.load_ticket_metadata import (
+from jr_dev_agent.utils.load_ticket_metadata import (
     load_ticket_metadata,
     get_fallback_status,
     validate_ticket_metadata,

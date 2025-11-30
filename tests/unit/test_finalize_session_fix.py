@@ -1,8 +1,8 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from langgraph_mcp.mcp_gateway import handle_finalize_session
-from langgraph_mcp.models.mcp import FinalizeSessionArgs
+from jr_dev_agent.tools.finalize_session import handle_finalize_session
+from jr_dev_agent.models.mcp import FinalizeSessionArgs
 
 @pytest.mark.asyncio
 async def test_finalize_session_uses_feedback_from_args():
@@ -58,4 +58,3 @@ async def test_finalize_session_uses_feedback_from_args():
     # Verify PESS score is present
     assert "_meta" in result
     assert result["_meta"]["pess_score"] == 95.0
-

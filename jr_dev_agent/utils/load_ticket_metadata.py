@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 # Local MCP client wrappers (support real + mock flows)
-from langgraph_mcp.clients import JiraMCPClient
+from jr_dev_agent.clients import JiraMCPClient
 
 # Setup structured logging
 logger = structlog.get_logger(__name__)

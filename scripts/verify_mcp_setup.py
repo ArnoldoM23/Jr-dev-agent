@@ -169,18 +169,24 @@ def test_prepare_agent_task():
                 print_status("No result in response", "error")
                 return False
             
-            # Check for required fields
-            has_prompt = "prompt_text" in result
-            has_chat_injection = "chat_injection" in result
-            has_metadata = "metadata" in result
+            # Check for CallToolResult structure (v2)
+            has_content = "content" in result
+            
+            # Access metadata from _meta if present (v2) or root (v1 fallback)
+            meta = result.get("_meta", result)
+            
+            has_prompt = "prompt_text" in meta
+            has_chat_injection = "chat_injection" in meta
+            has_metadata = "metadata" in meta
             
             print_status("prepare_agent_task works!", "success")
+            print_status(f"  Has content array: {has_content}", "success" if has_content else "error")
             print_status(f"  Has prompt_text: {has_prompt}", "success" if has_prompt else "error")
             print_status(f"  Has chat_injection: {has_chat_injection}", "success" if has_chat_injection else "error")
             print_status(f"  Has metadata: {has_metadata}", "success" if has_metadata else "error")
             
             if has_chat_injection:
-                chat_inj = result["chat_injection"]
+                chat_inj = meta["chat_injection"]
                 enabled = chat_inj.get("enabled", False)
                 has_message = "message" in chat_inj
                 print_status(f"  chat_injection.enabled: {enabled}", "success" if enabled else "warning")
