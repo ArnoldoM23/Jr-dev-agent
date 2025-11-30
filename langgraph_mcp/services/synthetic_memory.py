@@ -149,8 +149,10 @@ class SyntheticMemory:
         # Extract files from ticket data
         files_referenced = self._extract_files_from_ticket(ticket_data)
         
-        # Prefer explicit feature_id from PromptBuilder metadata
-        if 'metadata' in ticket_data and 'feature_id' in ticket_data['metadata']:
+        # Prefer explicit feature_id from top-level payload or PromptBuilder metadata
+        if 'feature_id' in ticket_data and ticket_data['feature_id']:
+            feature_id = ticket_data['feature_id']
+        elif 'metadata' in ticket_data and 'feature_id' in ticket_data['metadata']:
             feature_id = ticket_data['metadata']['feature_id']
         else:
             # Infer from ticket data using existing logic  

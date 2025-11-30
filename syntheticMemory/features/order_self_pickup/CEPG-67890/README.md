@@ -13,7 +13,7 @@ This directory contains synthetic memory for the order_self_pickup feature imple
 1.00
 
 ## Connected Features
-graphql_resolvers, graphql_schema
+graphql_schema, graphql_resolvers
 
 ## Related Nodes
 - orderInputResolver.ts ↔ orderResolver.ts

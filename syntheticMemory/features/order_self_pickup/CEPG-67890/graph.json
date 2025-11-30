@@ -18,8 +18,8 @@
     ]
   },
   "connected_features": [
-    "graphql_resolvers",
-    "graphql_schema"
+    "graphql_schema",
+    "graphql_resolvers"
   ],
   "complexity_score": 1.0
 }

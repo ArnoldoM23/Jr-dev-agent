@@ -18,12 +18,14 @@ Version: 1.0
 
 import json
 import os
-import requests
 from typing import Dict, Any, Optional
 from pathlib import Path
 import structlog
 from dataclasses import dataclass
 from datetime import datetime
+
+# Local MCP client wrappers (support real + mock flows)
+from langgraph_mcp.clients import JiraMCPClient
 
 # Setup structured logging
 logger = structlog.get_logger(__name__)
@@ -128,70 +130,23 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
         )
         return load_from_fallback(ticket_id)
     
-    # Try to fetch from Jira MCP API
-    try:
-        logger.info(f"Fetching from MCP: {ticket_id}")
-        
-        headers = {
-            "Accept": "application/json",
-            "User-Agent": "Jr-Dev-Agent/1.0"
-        }
-        
-        # Add authentication if available
-        api_key = os.getenv("JIRA_API_KEY")
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        
-        response = requests.get(
-            f"{JIRA_MCP_URL}/{ticket_id}",
-            headers=headers,
-            timeout=JIRA_TIMEOUT
-        )
-        
-        response.raise_for_status()
-        
-        metadata = response.json()
-        
-        logger.info(
-            "Successfully fetched from MCP",
-            ticket_id=ticket_id,
-            template_name=metadata.get("template_name"),
-            response_time=response.elapsed.total_seconds()
-        )
-        
-        return metadata
-        
-    except requests.exceptions.Timeout:
-        logger.warning(
-            "MCP request timed out - falling back to local data",
-            ticket_id=ticket_id,
-            timeout=JIRA_TIMEOUT
-        )
-        
-    except requests.exceptions.ConnectionError as e:
-        logger.warning(
-            "MCP connection failed - falling back to local data",
-            ticket_id=ticket_id,
-            error=str(e)
-        )
-        
-    except requests.exceptions.HTTPError as e:
-        logger.warning(
-            "MCP HTTP error - falling back to local data",
-            ticket_id=ticket_id,
-            status_code=e.response.status_code,
-            error=str(e)
-        )
-        
-    except Exception as e:
-        logger.warning(
-            "Unexpected MCP error - falling back to local data",
-            ticket_id=ticket_id,
-            error=str(e),
-            error_type=type(e).__name__
-        )
+    # Attempt to use the Jira MCP client when configured
+    client = JiraMCPClient()
+    if client.configured:
+        try:
+            logger.info("Fetching ticket from Jira MCP", ticket_id=ticket_id, url=client.base_url)
+            metadata = client.fetch_ticket(ticket_id)
+            if not metadata:
+                raise ValueError("Empty payload from Jira MCP")
+            return validate_ticket_metadata(metadata).to_dict()
+        except Exception as exc:
+            logger.warning(
+                "Jira MCP fetch failed - falling back to local data",
+                ticket_id=ticket_id,
+                error=str(exc)
+            )
     
-    # MCP failed - trigger fallback
+    # MCP not available or failed - trigger fallback
     logger.info(f"[MCP Fallback Triggered] Reason: MCP unavailable for {ticket_id}")
     return load_from_fallback(ticket_id)
 

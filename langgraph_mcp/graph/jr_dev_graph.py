@@ -8,12 +8,12 @@ It orchestrates the entire process from ticket fetching to prompt generation.
 import hashlib
 import logging
 import time
+import re
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 
 from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 from langgraph_mcp.utils.load_ticket_metadata import load_ticket_metadata
@@ -151,7 +151,7 @@ class JrDevGraph:
                 prompt="",
                 prompt_hash="",
                 template_used="",
-                processing_start=datetime.now(),
+                processing_start=datetime.now(timezone.utc),
                 processing_time_ms=0,
                 errors=[],
                 metadata={}
@@ -160,8 +160,11 @@ class JrDevGraph:
             # Run the workflow
             result = await self.graph.ainvoke(initial_state)
             
-            # Calculate processing time
-            processing_time = (datetime.now() - result['processing_start']).total_seconds() * 1000
+            # Calculate processing time (timezone-aware, tolerate naive start)
+            start_dt = result['processing_start']
+            if getattr(start_dt, 'tzinfo', None) is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            processing_time = (datetime.now(timezone.utc) - start_dt).total_seconds() * 1000
             result['processing_time_ms'] = int(processing_time)
             
             self.logger.info(f"Successfully processed ticket {ticket_data['ticket_id']} in {processing_time:.0f}ms")
@@ -257,36 +260,42 @@ class JrDevGraph:
             # Use Synthetic Memory v2 to enrich context
             enrichment_data = await self.synthetic_memory.enrich_context(state['ticket_data'])
             
-            state['metadata']['enrichment'] = enrichment_data
+            state['metadata']['enrichment'] = enrichment_data or {}
             state['current_step'] = "enrich_context" 
             state['steps_completed'].append("enrich_context")
             
-            # Log enrichment details
-            if enrichment_data.get('context_enriched'):
-                complexity = enrichment_data.get('complexity_score', 0)
-                related_count = len(enrichment_data.get('related_files', {}))
-                features_count = len(enrichment_data.get('connected_features', []))
+            # Log enrichment details (spec-aligned)
+            memory_envelope = (enrichment_data or {}).get('memory_envelope', {})
+            if (enrichment_data or {}).get('context_enriched') and memory_envelope:
+                complexity = memory_envelope.get('complexity_score', 0)
+                related_nodes = len(memory_envelope.get('related_nodes', []))
+                features_count = len(memory_envelope.get('connected_features', []))
                 self.logger.info(
-                    f"Successfully enriched context for {state['ticket_id']}: "
-                    f"complexity={complexity:.2f}, related_files={related_count}, "
+                    f"Enriched: feature={memory_envelope.get('feature_id','unknown')}, "
+                    f"complexity={complexity:.2f}, related_nodes={related_nodes}, "
                     f"connected_features={features_count}"
                 )
             else:
-                self.logger.warning(f"Context enrichment failed for {state['ticket_id']}")
+                self.logger.warning(f"No prior memory context available for {state['ticket_id']}")
             
         except Exception as e:
             error_msg = f"Error enriching context: {str(e)}"
             state['errors'].append(error_msg)
             self.logger.error(error_msg)
             
-            # Provide fallback enrichment data
+            # Provide fallback enrichment data (spec-aligned)
             state['metadata']['enrichment'] = {
                 "context_enriched": False,
                 "error": str(e),
                 "enrichment_timestamp": time.time(),
-                "complexity_score": 0.5,
-                "related_files": {},
-                "connected_features": []
+                "memory_envelope": {
+                    "feature_id": "unknown",
+                    "complexity_score": 0.5,
+                    "related_nodes": [],
+                    "connected_features": [],
+                    "prior_runs": [],
+                    "file_hints": []
+                }
             }
         
         return state
@@ -299,24 +308,27 @@ class JrDevGraph:
         """
         files = []
         
-        # Check common file fields in ticket data
-        if 'files_affected' in ticket_data and ticket_data['files_affected']:
-            if isinstance(ticket_data['files_affected'], list):
-                files.extend(ticket_data['files_affected'])
-            elif isinstance(ticket_data['files_affected'], str):
-                files.append(ticket_data['files_affected'])
+        # 1) Highest precedence: agent_guardrails.file_allowlist
+        allowlist = (ticket_data.get('agent_guardrails') or {}).get('file_allowlist') or []
+        if isinstance(allowlist, list):
+            files.extend(allowlist)
+
+        # 2) files_affected
+        fa = ticket_data.get('files_affected')
+        if isinstance(fa, list):
+            files.extend(fa)
+        elif isinstance(fa, str):
+            files.append(fa)
         
         # Check metadata for file references  
         if 'metadata' in ticket_data and 'file_references' in ticket_data['metadata']:
             files.extend(ticket_data['metadata']['file_references'])
         
-        # Parse files from description if available
+        # 4) Parse files from description if available
         description = ticket_data.get('description', '')
         if description:
-            # Simple extraction of file paths from description
-            import re
             # Look for file patterns like src/path/to/file.ts or similar
-            file_patterns = re.findall(r'[\w\-/]+\.[a-zA-Z]{1,4}', description)
+            file_patterns = re.findall(r'[\w\-/]+\.[a-zA-Z0-9]{1,6}', description)
             files.extend(file_patterns)
         
         # Deduplicate and filter out invalid files
@@ -354,6 +366,16 @@ class JrDevGraph:
             
             # Extract files to modify from ticket data
             files_to_modify = self._extract_files_to_modify(state['ticket_data'])
+            state['metadata']['files_to_modify'] = files_to_modify
+
+            # Capture commands (if any)
+            commands = state['ticket_data'].get('commands', [])
+            if isinstance(commands, list):
+                state['metadata']['commands'] = commands
+            elif isinstance(commands, str):
+                state['metadata']['commands'] = [commands]
+            else:
+                state['metadata']['commands'] = []
             
             # Compose final prompt with Memory Context and Read-before-edit sections
             if memory_envelope and memory_envelope.get('feature_id') != 'unknown':
@@ -369,11 +391,13 @@ class JrDevGraph:
                 enhanced_prompt = f"{base_prompt}\n\n{no_memory_context}"
                 self.logger.info(f"Generated prompt with no prior memory context")
             
-            # Generate hash from the enhanced prompt
-            prompt_hash = hashlib.sha256(enhanced_prompt.encode()).hexdigest()[:16]
+            # Generate hash from the enhanced prompt (full + short)
+            full_hash = hashlib.sha256(enhanced_prompt.encode()).hexdigest()
+            prompt_hash = full_hash[:16]
             
             state['prompt'] = enhanced_prompt
             state['prompt_hash'] = prompt_hash
+            state['metadata']['prompt_hash_full'] = full_hash
             state['current_step'] = "generate_prompt"
             state['steps_completed'].append("generate_prompt")
             
@@ -408,8 +432,11 @@ class JrDevGraph:
         try:
             self.logger.info(f"Finalizing processing for {state['ticket_id']}")
             
-            # Calculate processing time
-            processing_time_ms = int((datetime.now() - state['processing_start']).total_seconds() * 1000)
+            # Calculate processing time (timezone-aware, tolerate naive start)
+            start_dt = state['processing_start']
+            if getattr(start_dt, 'tzinfo', None) is None or start_dt.tzinfo.utcoffset(start_dt) is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            processing_time_ms = int((datetime.now(timezone.utc) - start_dt).total_seconds() * 1000)
             
             # Record PESS completion scoring
             try:
@@ -417,7 +444,9 @@ class JrDevGraph:
                     ticket_id=state['ticket_id'],
                     session_id=state['session_id'],
                     processing_time_ms=processing_time_ms,
-                    retry_count=1  # Default for LangGraph workflow
+                    retry_count=1,  # Default for LangGraph workflow
+                    feedback=None,
+                    agent_telemetry=None,
                 )
                 state['metadata']['pess_score'] = pess_result
                 self.logger.info(f"PESS scoring completed for {state['ticket_id']}: {pess_result.get('prompt_score', 'N/A')}")
@@ -441,7 +470,7 @@ class JrDevGraph:
                 self.logger.warning(f"Failed to record completion in synthetic memory: {str(e)}")
             
             # Add final metadata
-            state['metadata']['finalized_at'] = datetime.now().isoformat()
+            state['metadata']['finalized_at'] = datetime.now(timezone.utc).isoformat()
             state['metadata']['total_steps'] = len(state['steps_completed'])
             state['metadata']['success'] = len(state['errors']) == 0
             state['metadata']['processing_time_ms'] = processing_time_ms
@@ -472,7 +501,10 @@ class JrDevGraph:
                 "graph_initialized": self.graph is not None,
                 "prompt_builder": self.prompt_builder.get_status(),
                 "template_engine": self.template_engine.get_status(),
-                "jira_prompt_node": self.jira_prompt_node.get_status()
+                "jira_prompt_node": self.jira_prompt_node.get_status(),
+                "synthetic_memory": getattr(self.synthetic_memory, 'get_status', lambda: {"initialized": True})(),
+                "pess_client": getattr(self.pess_client, 'get_status', lambda: {"initialized": True})(),
+                "prompt_composer": getattr(self.prompt_composer, 'get_status', lambda: {"initialized": True})()
             }
         except Exception as e:
             return {

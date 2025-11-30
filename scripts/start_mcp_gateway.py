@@ -134,30 +134,30 @@ class MCPGatewayLauncher:
     
     def print_banner(self, host: str, port: int, dev_mode: bool):
         """Print startup banner"""
-        print("=" * 70)
-        print("🤖 Jr Dev Agent - MCP Gateway Server v2.0.0-MVP")
-        print("=" * 70)
-        print(f"🌐 Server URL: http://{host}:{port}")
-        print(f"📚 API Docs: http://{host}:{port}/docs")
-        print(f"🔧 Dev Mode: {'Enabled' if dev_mode else 'Disabled'}")
-        print(f"🔍 Health Check: http://{host}:{port}/health")
-        print("")
-        print("📋 Available Endpoints:")
-        print(f"   • Health: GET /health")
-        print(f"   • MCP Initialize: POST /mcp/initialize")
-        print(f"   • MCP Tools List: POST /mcp/tools/list")
-        print(f"   • MCP Tools Call: POST /mcp/tools/call")
-        print(f"   • Legacy v1 Endpoints: /api/*")
-        print("")
-        print("🧪 Test Command:")
-        print(f"   python scripts/test_mcp_gateway.py")
-        print("=" * 70)
+        print("=" * 70, file=sys.stderr)
+        print("🤖 Jr Dev Agent - MCP Gateway Server v2.0.0-MVP", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
+        print(f"🌐 Server URL: http://{host}:{port}", file=sys.stderr)
+        print(f"📚 API Docs: http://{host}:{port}/docs", file=sys.stderr)
+        print(f"🔧 Dev Mode: {'Enabled' if dev_mode else 'Disabled'}", file=sys.stderr)
+        print(f"🔍 Health Check: http://{host}:{port}/health", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("📋 Available Endpoints:", file=sys.stderr)
+        print(f"   • Health: GET /health", file=sys.stderr)
+        print(f"   • MCP Initialize: POST /mcp/initialize", file=sys.stderr)
+        print(f"   • MCP Tools List: POST /mcp/tools/list", file=sys.stderr)
+        print(f"   • MCP Tools Call: POST /mcp/tools/call", file=sys.stderr)
+        print(f"   • Legacy v1 Endpoints: /api/*", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("🧪 Test Command:", file=sys.stderr)
+        print(f"   python scripts/test_mcp_gateway.py", file=sys.stderr)
+        print("=" * 70, file=sys.stderr)
     
     def print_shutdown_banner(self):
         """Print shutdown banner"""
-        print("\n" + "=" * 50)
-        print("👋 Jr Dev Agent MCP Gateway Server Stopped")
-        print("=" * 50)
+        print("\n" + "=" * 50, file=sys.stderr)
+        print("👋 Jr Dev Agent MCP Gateway Server Stopped", file=sys.stderr)
+        print("=" * 50, file=sys.stderr)
     
     async def launch(self, host: str = "0.0.0.0", port: int = 8000, dev_mode: bool = False):
         """Main launch method"""
