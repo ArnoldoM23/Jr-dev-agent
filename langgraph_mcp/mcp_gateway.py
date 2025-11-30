@@ -192,7 +192,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
         
         Routes JSON-RPC requests to appropriate handlers.
         """
-        request_data = request.dict()
+        request_data = request.model_dump()
         method = request_data.get("method")
         logger.info(f"MCP root received method={method} request={request_data}")
         
@@ -241,7 +241,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
             
             result = MCPInitializeResult()
             
-            return _success(request.id, result.dict())
+            return _success(request.id, result.model_dump())
             
         except Exception as e:
             logger.error(f"MCP initialization failed: {str(e)}")
@@ -258,7 +258,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
         try:
             logger.info("MCP tools list requested")
             
-            tools = [tool.dict() for tool in MCP_TOOLS.values()]
+            tools = [tool.model_dump() for tool in MCP_TOOLS.values()]
             
             return _success(request.id, {"tools": tools})
             
@@ -626,11 +626,16 @@ async def handle_finalize_session(
         confluence_update=confluence_update,
     )
     
-    logger.info(
-        f"Session {args.session_id} finalized",
-        extra={"pess_score_percent": pess_score_percent, "ticket_id": args.ticket_id},
-    )
-    return result.dict()
+    # Format as valid MCP CallToolResult
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": f"Session finalized for {args.ticket_id}.\nPESS Score: {pess_score_percent}%\n\nFeedback: {result.feedback or 'No feedback provided'}"
+            }
+        ],
+        "_meta": result.model_dump()
+    }
 
 
 async def handle_health_tool(jr_dev_graph, session_manager) -> Dict[str, Any]:
@@ -664,7 +669,7 @@ async def handle_health_tool(jr_dev_graph, session_manager) -> Dict[str, Any]:
         mcp_tools_available=len(MCP_TOOLS)
     )
     
-    return result.dict()
+    return result.model_dump()
 
 
 # Helper functions for prompt processing

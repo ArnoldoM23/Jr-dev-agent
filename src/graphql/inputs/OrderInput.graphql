@@ -1,0 +1,7 @@
+input OrderInput {
+  items: [OrderItemInput!]!
+  paymentMethod: String!
+  pickup_store_id: String
+  pickup_time: String
+}
+
