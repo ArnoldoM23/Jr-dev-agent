@@ -132,7 +132,7 @@ async def generate_prompt(request: PromptRequest) -> PromptResponse:
         
         # Process through LangGraph
         result = await jr_dev_graph.process_ticket(
-            ticket_data=request.ticket_data.dict(),
+            ticket_data=request.ticket_data.model_dump(),
             session_id=session_id
         )
         
