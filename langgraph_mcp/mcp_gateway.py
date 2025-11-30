@@ -538,7 +538,7 @@ async def handle_finalize_session(
                 files_modified=args.files_modified,
                 processing_time_ms=args.duration_ms,
                 retry_count=args.retry_count,
-                feedback=args.feedback,
+                ç=args.feedback,
                 agent_telemetry=args.agent_telemetry,
             )
         except Exception as e:
@@ -631,7 +631,7 @@ async def handle_finalize_session(
         "content": [
             {
                 "type": "text",
-                "text": f"Session finalized for {args.ticket_id}.\nPESS Score: {pess_score_percent}%\n\nFeedback: {result.feedback or 'No feedback provided'}"
+                "text": f"Session finalized for {args.ticket_id}.\nPESS Score: {pess_score_percent}%\n\nFeedback: {args.feedback or 'No feedback provided'}"
             }
         ],
         "_meta": result.model_dump()

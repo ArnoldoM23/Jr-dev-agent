@@ -1,50 +1,71 @@
 import { orderResolver } from './orderResolver';
 
-// Mock test runner (since we don't have a full TS environment here)
-console.log("Running tests...");
-
-const runTests = () => {
-  try {
-    // Test 1: Pickup order within hours
-    const input = {
-      items: [{ id: 1 }],
-      paymentMethod: "CREDIT",
-      pickup_store_id: "123",
-      pickup_time: "2023-10-27T10:00:00Z" // 10am UTC
-    };
-    // Note: simplified test, ignoring timezone issues for mock
-    const result = orderResolver.Mutation.createOrder(null, { input });
-    
-    if (result.pickup_store === "Store-123") {
-      console.log("Test 1 Passed: Pickup store set correctly");
-    } else {
-      console.error("Test 1 Failed");
-    }
-
-    // Test 2: Pickup order out of hours
-    try {
-      const badInput = {
-        items: [{ id: 1 }],
-        paymentMethod: "CREDIT",
-        pickup_store_id: "123",
-        pickup_time: "2023-10-27T23:00:00Z" // 11pm UTC
+describe('orderResolver', () => {
+  describe('createOrder', () => {
+    it('should create an order with pickup details', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T10:00:00Z' // 10 AM
       };
-      // We might need to adjust logic if the resolver uses local time
-      // For this mock, let's assume the resolver logic holds.
-      orderResolver.Mutation.createOrder(null, { input: badInput });
-      console.error("Test 2 Failed: Should have thrown error");
-    } catch (e: any) {
-      if (e.message.includes("operating hours")) {
-        console.log("Test 2 Passed: Operating hours validation working");
-      } else {
-          console.error("Test 2 Failed: Wrong error message: " + e.message);
-      }
-    }
+      
+      const result = orderResolver.Mutation.createOrder(null, { input });
+      
+      expect(result.pickup_store).toBe('Store-123');
+      expect(result.pickup_time).toBe(input.pickup_time);
+      expect(result.status).toBe('PENDING');
+    });
 
-  } catch (e) {
-    console.error("Tests failed", e);
-  }
-};
+    it('should throw error if pickup_time is missing for pickup order', () => {
+      const input = {
+        pickup_store_id: '123'
+      };
+      
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup time is required when store pickup is selected');
+    });
 
-runTests();
+    it('should throw error if pickup_time is out of operating hours', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T08:00:00Z' // 8 AM
+      };
+      
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup time must be within store operating hours (09:00 - 21:00)');
+    });
 
+    it('should allow pickup time at start of operating hours', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T09:00:00Z' // 9 AM
+      };
+      
+      const result = orderResolver.Mutation.createOrder(null, { input });
+      expect(result.pickup_store).toBe('Store-123');
+    });
+
+    it('should throw error if pickup_time is after operating hours', () => {
+      const input = {
+        pickup_store_id: '123',
+        pickup_time: '2023-10-27T21:00:00Z' // 9 PM
+      };
+      
+      expect(() => {
+        orderResolver.Mutation.createOrder(null, { input });
+      }).toThrow('Pickup time must be within store operating hours (09:00 - 21:00)');
+    });
+
+    it('should create a regular order without pickup', () => {
+      const input = {
+        someOtherField: 'value'
+      };
+      
+      const result = orderResolver.Mutation.createOrder(null, { input });
+      
+      expect(result.pickup_store).toBeNull();
+      expect(result.pickup_time).toBeUndefined();
+    });
+  });
+});
