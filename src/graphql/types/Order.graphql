@@ -1,0 +1,10 @@
+type Order {
+  id: ID!
+  items: [OrderItem!]!
+  total: Float!
+  status: OrderStatus!
+  createdAt: String!
+  pickup_store: String
+  pickup_time: String
+}
+
