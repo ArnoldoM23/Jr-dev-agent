@@ -2,7 +2,11 @@
 
 **AI-Powered Development Agent via Model Context Protocol (MCP)**
 
-Transform Jira tickets into working pull requests through AI automation. Simply type `/jrdev CEPG-12345` in any MCP-compatible IDE and receive a complete, agent-ready prompt for immediate execution.
+Transform Jira tickets into working pull requests through AI automation. Simply type `@jrdev prepare_agent_task CEPG-12345` in any MCP-compatible IDE and receive a complete, agent-ready prompt injected directly into your chat input box.
+
+> **⚠️ IMPORTANT**: The MCP gateway must be **running separately** before using `@jrdev` commands.  
+> Start it once with: `python scripts/start_mcp_gateway.py` and keep it running.  
+> The IDE then connects via the STDIO bridge (configured in `.cursor/mcp.json`).
 
 ## 🏗️ v2 Architecture (MCP-Only)
 
@@ -49,6 +53,7 @@ Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
 - Python 3.11+
 - MCP-compatible IDE (VS Code, Cursor, Windsurf)
 - Jira access (or use fallback mode)
+- `pip install -r requirements.txt` must be run inside your virtualenv (the repo includes a lightweight `langgraph/` stub so no extra install is required for that dependency when running offline)
 
 ### 1. Installation
 ```bash
@@ -65,26 +70,77 @@ cp config.json.example config.json
 # Edit config.json with your Jira settings
 ```
 
-### 3. Start Server
+### 3. Start MCP Gateway Server
+
+⚠️ **IMPORTANT**: The MCP gateway must be running BEFORE you use `@jrdev` commands.
+
 ```bash
-python scripts/start_mcp_gateway.py --dev
+# Start the gateway (keep this running in a separate terminal)
+python scripts/start_mcp_gateway.py
 ```
 
-### 4. IDE Setup
-Configure your MCP-compatible IDE to connect to: `http://localhost:8000`
+You should see:
+```
+🚀 Starting MCP Gateway server on 0.0.0.0:8000
+📚 API Docs: http://0.0.0.0:8000/docs
+```
+
+The server will run continuously. Keep this terminal open.
+
+### 4. IDE Setup (Cursor)
+
+The `.cursor/mcp.json` file is pre-configured to connect to the gateway via STDIO bridge:
+
+```json
+{
+  "mcpServers": {
+    "jrdev": {
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["${workspaceFolder}/scripts/mcp_stdio_server.py"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}
+```
+
+**No additional setup needed!** Cursor will automatically use this configuration.
 
 ### 5. Usage
-In your IDE chat, type:
-```
-/jrdev CEPG-12345
-```
 
+#### Option A: Tool (Recommended for Cursor)
+In Cursor chat, type:
+```
+@jrdev prepare_agent_task CEPG-12345
+```
+1. The system executes and displays the generated prompt as a **Result Block**.
+2. **Click Copy** on the result block.
+3. Paste into the chat input box and press Enter.
+
+#### Option B: Prompt (Slash Command)
+In Cursor chat, type `/` and select `jrdev/prepare_agent_task`.
+1. Enter the `ticket_id` when prompted.
+2. Cursor will execute the prompt and insert the result into the **Chat History**.
+3. You can then Copy-Paste it into the input box (Cursor does not yet support auto-filling the input box from prompts).
+
+#### Workflow
 The system will:
 1. 🎫 Fetch Jira ticket metadata
 2. 🧱 Build structured prompt using templates  
 3. 🧠 Enrich with Synthetic Memory context
-4. 📝 Return ready-to-run prompt for Agent Mode
-5. ⚡ You press Enter → AI Agent executes changes
+4. 📝 Return ready-to-run prompt
+5. ⚡ **Execute the prompt with the AI Agent**
+
+**Note**: Due to current Cursor MCP limitations, the prompt appears as a response (not injected into the input box). Simply copy-paste it into a new message to execute.
+
+### 6. Local Demo (optional)
+With the server running you can exercise the entire workflow without curl:
+```bash
+python scripts/demo_mcp_workflow.py --ticket CEPG-67890 --session demo-session
+```
+This prints the tool list, generated prompt, mock PESS score, and the Confluence template update (stored under `syntheticMemory/_confluence_updates/`).
 
 ## 📋 Commands
 
@@ -92,7 +148,9 @@ The system will:
 |---------|-------------|
 | `/jrdev TICKET-ID` | Generate agent-ready prompt for ticket |
 | Health endpoint: `GET /health` | Check server status |
-| Finalize: `POST /v2/jrdev/finalize` | Complete session & trigger PESS scoring |
+| MCP finalize tool | `/mcp/tools/call` with `finalize_session` to record feedback and scores |
+
+For scripted demos use `python scripts/demo_mcp_workflow.py`.
 
 ## 🧠 Synthetic Memory System
 
@@ -126,23 +184,12 @@ After each PR, get automated feedback:
 
 ## 🧪 Development & Testing
 
-### Run Tests
-```bash
-# Test v2 MCP Orchestrator
-python scripts/test_v2_mcp_orchestrator.py
-
-# Test v1 compatibility  
-python scripts/test_mcp_gateway.py
-
-# Test with fallback data
-python scripts/test_mvp_fallback.py
-```
-
-### Development Mode
-```bash
-export DEV_MODE=true
-python scripts/start_mcp_gateway.py --dev
-```
+- Run the integration smoke test:
+  ```bash
+  pytest tests/integration/test_mcp_gateway_endpoints.py
+  ```
+- For manual demos start the gateway (`python scripts/start_mcp_gateway.py`) and run `python scripts/demo_mcp_workflow.py`.
+- Enable fallback-only mode by exporting `DEV_MODE=true` before launching the server.
 
 ## 📁 Project Structure
 
@@ -165,9 +212,20 @@ jr-dev-agent/
 └── tests/                   # Test suites
 ```
 
-## 🔧 Configuration
+## 🔧 Configuration & MCP Secrets
 
-Key configuration options in `config.json`:
+Key configuration options live in `config.json` (used mainly for the filesystem synthetic memory backend). When connecting to the enterprise MCP servers supply the following environment variables before starting the gateway:
+
+```bash
+export JIRA_MCP_URL="https://mcp-jira.stage.walmart.com/mcp/"
+export JIRA_MCP_TOKEN="Bearer <PINGFED_TOKEN>"
+export CONFLUENCE_MCP_URL="https://mcp-confluence.stage.walmart.com/mcp/"
+export CONFLUENCE_MCP_TOKEN="Bearer <PINGFED_TOKEN>"
+```
+
+If these are not set the gateway automatically falls back to the local `langgraph_mcp/fallback/jira_prompt.json` ticket data and writes Confluence updates to `syntheticMemory/_confluence_updates/`.
+
+The default `config.json` controls the synthetic memory backend:
 
 ```json
 {
