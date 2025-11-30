@@ -39,15 +39,32 @@ class PESSClient:
         # Load config if available
         try:
             import json
-            with open("config.json", "r") as f:
-                config = json.load(f)
-                pess_config = config.get("pess", {})
-                if "url" in pess_config:
-                    self.base_url = pess_config["url"]
-                if "token" in pess_config:
-                    self.api_key = pess_config["token"]
-        except FileNotFoundError:
-            pass  # Use environment variables
+            if os.path.exists("config.json"):
+                with open("config.json", "r") as f:
+                    config = json.load(f)
+                    pess_config = config.get("pess", {})
+                    if "url" in pess_config:
+                        url = pess_config["url"]
+                        # Handle env: prefix or valid URL
+                        if url and url.startswith("env:"):
+                            env_var = url.split(":", 1)[1]
+                            self.base_url = os.getenv(env_var)
+                        elif url and (url.startswith("http://") or url.startswith("https://")):
+                            self.base_url = url
+                        else:
+                            # Invalid or placeholder URL -> assume mock mode
+                            self.logger.debug(f"PESS URL '{url}' is not a valid HTTP URL, defaulting to mock mode")
+                            self.base_url = None
+                            
+                    if "token" in pess_config:
+                        token = pess_config["token"]
+                        if token and token.startswith("env:"):
+                            env_var = token.split(":", 1)[1]
+                            self.api_key = os.getenv(env_var)
+                        else:
+                            self.api_key = token
+        except Exception as e:
+            self.logger.warning(f"Failed to load PESS config: {e}")
         
         self.initialized = True
         status = "configured" if self.base_url else "mock mode"
