@@ -116,10 +116,17 @@ class PESSClient:
         except Exception as e:
             self.logger.error(f"Error recording prompt generation: {str(e)}")
     
-    async def score_session_completion(self, ticket_id: str, session_id: str, 
-                                     pr_url: str = None, files_modified: list = None,
-                                     processing_time_ms: int = None, 
-                                     retry_count: int = 1) -> Dict[str, Any]:
+    async def score_session_completion(
+        self,
+        ticket_id: str,
+        session_id: str,
+        pr_url: str = None,
+        files_modified: list = None,
+        processing_time_ms: int = None,
+        retry_count: int = 1,
+        feedback: Optional[str] = None,
+        agent_telemetry: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Score a completed development session.
         
@@ -145,6 +152,8 @@ class PESSClient:
                 "files_modified": files_modified or [],
                 "processing_time_ms": processing_time_ms,
                 "retry_count": retry_count,
+                "feedback": feedback,
+                "agent_telemetry": agent_telemetry or {},
                 "timestamp": time.time()
             }
             
@@ -259,8 +268,11 @@ class PESSClient:
         
         recommendation_text = "; ".join(recommendations) if recommendations else "Good prompt quality maintained"
         
-        return {
-            "prompt_score": round(final_score, 2),
+        prompt_score = round(final_score, 2)
+
+        result = {
+            "prompt_score": prompt_score,
+            "score_percent": round(prompt_score * 100, 1),
             "clarity_rating": clarity,
             "edit_similarity": round(max(0.1, final_score - 0.05), 2),
             "risk_score": round(max(0.0, 1.0 - final_score), 2),
@@ -268,5 +280,13 @@ class PESSClient:
             "processing_time_ms": processing_time,
             "files_affected": files_count,
             "retry_count": retry_count,
-            "mock_response": True  # Indicate this is a mock for development
+            "mock_response": True,  # Indicate this is a mock for development
+            "algorithm_version": "mock_0.1",
         }
+
+        if payload.get("feedback"):
+            result["feedback"] = payload.get("feedback")
+        if payload.get("agent_telemetry"):
+            result["agent_telemetry"] = payload.get("agent_telemetry")
+
+        return result

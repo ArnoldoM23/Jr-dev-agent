@@ -444,7 +444,9 @@ class JrDevGraph:
                     ticket_id=state['ticket_id'],
                     session_id=state['session_id'],
                     processing_time_ms=processing_time_ms,
-                    retry_count=1  # Default for LangGraph workflow
+                    retry_count=1,  # Default for LangGraph workflow
+                    feedback=None,
+                    agent_telemetry=None,
                 )
                 state['metadata']['pess_score'] = pess_result
                 self.logger.info(f"PESS scoring completed for {state['ticket_id']}: {pess_result.get('prompt_score', 'N/A')}")

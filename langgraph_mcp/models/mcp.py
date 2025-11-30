@@ -80,6 +80,9 @@ class MCPResponse(BaseModel):
     error: Optional[Dict[str, Any]] = Field(None, description="Error object")
 
     class Config:
+        # Exclude None values so we don't send both result and error
+        json_encoders = {type(None): lambda v: None}
+        
         json_schema_extra = {
             "example": {
                 "jsonrpc": "2.0",
@@ -90,6 +93,11 @@ class MCPResponse(BaseModel):
                 }
             }
         }
+    
+    def dict(self, **kwargs):
+        """Override dict to exclude None values"""
+        kwargs['exclude_none'] = True
+        return super().dict(**kwargs)
 
 
 class MCPError(BaseModel):
@@ -235,6 +243,8 @@ class FinalizeSessionArgs(BaseModel):
     retry_count: int = Field(default=0, ge=0, description="Number of retries")
     manual_edits: int = Field(default=0, ge=0, description="Number of manual edits")
     duration_ms: int = Field(default=0, ge=0, description="Session duration in milliseconds")
+    feedback: Optional[str] = Field(None, description="Developer feedback or qualitative notes about the run")
+    agent_telemetry: Dict[str, Any] = Field(default_factory=dict, description="Raw telemetry emitted by the coding agent")
 
     class Config:
         json_schema_extra = {
@@ -249,7 +259,9 @@ class FinalizeSessionArgs(BaseModel):
                 ],
                 "retry_count": 1,
                 "manual_edits": 0,
-                "duration_ms": 245000
+                "duration_ms": 245000,
+                "feedback": "Prompt was clear; agent needed one retry for schema update",
+                "agent_telemetry": {"retries": 1, "commands": ["npm run generate", "npm test"]}
             }
         }
 
@@ -262,6 +274,7 @@ class FinalizeSessionResult(BaseModel):
     """
     pess_score: confloat(ge=0.0, le=100.0) = Field(..., description="PESS effectiveness score (0-100)")
     analytics: Dict[str, Any] = Field(..., description="Session analytics data")
+    confluence_update: Optional[Dict[str, Any]] = Field(None, description="Details about the Confluence template update if performed")
 
     class Config:
         json_schema_extra = {
@@ -347,7 +360,7 @@ class MCPServerInfo(BaseModel):
 
 class MCPInitializeResult(BaseModel):
     """Result from MCP initialization handshake"""
-    protocolVersion: str = Field(default="1.0.0")
+    protocolVersion: str = Field(default="2024-11-05")
     capabilities: MCPCapabilities = Field(default_factory=MCPCapabilities)
     serverInfo: MCPServerInfo = Field(default_factory=MCPServerInfo)
 
