@@ -1,4 +1,4 @@
-name: Auto Tag on Merge
+name: Auto Tag and Version Bump
 
 on:
   push:
@@ -15,38 +15,59 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for tags
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get version from pyproject.toml
-        id: get_version
+      - name: Get current version and auto-increment
+        id: version
         run: |
-          # Extract version using simple grep (assumes version = "x.y.z" is present)
-          VERSION=$(grep -m 1 '^version = ' pyproject.toml | cut -d '"' -f 2)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Detected version: $VERSION"
+          # Extract current version from pyproject.toml
+          CURRENT_VERSION=$(grep -m 1 '^version = ' pyproject.toml | cut -d '"' -f 2)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into major.minor.patch
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          
+          echo "New version: $NEW_VERSION"
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "NEW_TAG=v${NEW_VERSION}" >> $GITHUB_ENV
 
-      - name: Check if tag exists
+      - name: Check if tag already exists
         id: check_tag
         run: |
-          TAG="v${{ env.VERSION }}"
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "Tag $TAG already exists."
+          if git rev-parse -q --verify "refs/tags/${{ env.NEW_TAG }}" >/dev/null; then
+            echo "Tag ${{ env.NEW_TAG }} already exists. Skipping."
             echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "Tag $TAG does not exist. Will create it."
+            echo "Tag ${{ env.NEW_TAG }} does not exist. Will create it."
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create and Push Tag
+      - name: Update pyproject.toml with new version
         if: steps.check_tag.outputs.exists == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v${{ env.VERSION }}"
+          sed -i "s/^version = \".*\"/version = \"${{ env.NEW_VERSION }}\"/" pyproject.toml
+          echo "Updated pyproject.toml to version ${{ env.NEW_VERSION }}"
+
+      - name: Commit version bump
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          echo "Creating tag $TAG..."
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git push origin main
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git tag -a "${{ env.NEW_TAG }}" -m "Release ${{ env.NEW_TAG }}"
+          git push origin "${{ env.NEW_TAG }}"
+          echo "✅ Created and pushed tag ${{ env.NEW_TAG }}"
 
