@@ -46,12 +46,23 @@ class PromptBuilder:
             self.logger.info(f"Generating prompt for ticket {ticket_data['ticket_id']} using template {template_name}")
             
             # Generate the prompt based on template
-            if template_name == "feature":
+            if ticket_data.get('prompt_text'):
+                self.logger.info(f"Using provided prompt_text from ticket data")
+                prompt = ticket_data['prompt_text']
+            elif template_name == "feature":
                 prompt = self._generate_feature_prompt(ticket_data, enrichment_data)
             elif template_name == "bugfix":
                 prompt = self._generate_bugfix_prompt(ticket_data, enrichment_data)
             elif template_name == "refactor":
                 prompt = self._generate_refactor_prompt(ticket_data, enrichment_data)
+            elif template_name == "feature_schema_change":
+                prompt = self._generate_feature_prompt(ticket_data, enrichment_data)
+            elif template_name in ["schema_change", "version_upgrade", "config_update"]:
+                # Use feature template for maintenance/config tasks for now
+                prompt = self._generate_feature_prompt(ticket_data, enrichment_data)
+            elif template_name == "test_generation":
+                # Use feature template structure for test generation
+                prompt = self._generate_feature_prompt(ticket_data, enrichment_data)
             else:
                 # Fallback to feature template
                 self.logger.warning(f"Unknown template {template_name}, using feature template")
@@ -280,7 +291,10 @@ class PromptBuilder:
             "initialized": self.initialized,
             "service": "PromptBuilder",
             "version": "1.0.0",
-            "supported_templates": ["feature", "bugfix", "refactor"]
+            "supported_templates": [
+                "feature", "bugfix", "refactor", "feature_schema_change",
+                "schema_change", "version_upgrade", "config_update", "test_generation"
+            ]
         }
     
     async def cleanup(self):

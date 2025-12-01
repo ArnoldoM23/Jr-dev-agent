@@ -26,6 +26,7 @@ from datetime import datetime
 
 # Local MCP client wrappers (support real + mock flows)
 from jr_dev_agent.clients import JiraMCPClient
+from jr_dev_agent.utils.description_parser import extract_template_from_description
 
 # Setup structured logging
 logger = structlog.get_logger(__name__)
@@ -57,6 +58,7 @@ class JiraMetadata:
     epic_link: str = ""
     sprint: str = ""
     additional_context: dict = None
+    prompt_text: Optional[str] = None
 
     def __post_init__(self):
         """Initialize default values"""
@@ -85,7 +87,8 @@ class JiraMetadata:
             "updated_date": self.updated_date,
             "epic_link": self.epic_link,
             "sprint": self.sprint,
-            "additional_context": self.additional_context
+            "additional_context": self.additional_context,
+            "prompt_text": self.prompt_text
         }
 
 class JiraFallbackError(Exception):
@@ -228,6 +231,28 @@ def validate_ticket_metadata(metadata: Dict[str, Any]) -> JiraMetadata:
     Raises:
         ValueError: If required fields are missing
     """
+    # Attempt to extract template info from description if available
+    if "description" in metadata and metadata["description"]:
+        try:
+            extracted_template = extract_template_from_description(metadata["description"])
+            if extracted_template:
+                logger.info("Enriching metadata from description template", 
+                           template_name=extracted_template.get("name"))
+                
+                # Map extracted fields to metadata
+                if "name" in extracted_template:
+                    metadata["template_name"] = extracted_template["name"]
+                if "prompt_text" in extracted_template:
+                    metadata["prompt_text"] = extracted_template["prompt_text"]
+                
+                # Map optional fields if they exist in template but not in metadata
+                for field in ["feature", "summary"]:
+                    if field in extracted_template and field not in metadata:
+                        metadata[field] = extracted_template[field]
+                        
+        except Exception as e:
+            logger.warning("Failed to extract template from description", error=str(e))
+
     required_fields = [
         "ticket_id", "template_name", "summary", 
         "description", "acceptance_criteria", "files_affected", "feature"
@@ -255,7 +280,8 @@ def validate_ticket_metadata(metadata: Dict[str, Any]) -> JiraMetadata:
         updated_date=metadata.get("updated_date", ""),
         epic_link=metadata.get("epic_link", ""),
         sprint=metadata.get("sprint", ""),
-        additional_context=metadata.get("additional_context", {})
+        additional_context=metadata.get("additional_context", {}),
+        prompt_text=metadata.get("prompt_text")
     )
 
 def create_fallback_file(ticket_id: str, metadata: Dict[str, Any]) -> None:

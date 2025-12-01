@@ -34,6 +34,18 @@ class TemplateEngine:
     
     def _load_default_templates(self):
         """Load default template configurations"""
+
+        # Schema change template
+        self.templates["schema_change"] = {
+            "name": "schema_change",
+            "version": "1.0",
+            "description": "Template for database or GraphQL schema changes",
+            "category": "data",
+            "required_fields": ["ticket_id", "summary", "description"],
+            "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
+            "keywords": ["schema", "database", "graphql", "migration", "table"],
+            "priority": 1
+        }
         
         # Feature template
         self.templates["feature"] = {
@@ -44,7 +56,7 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["feature", "enhancement", "new", "implement", "add"],
-            "priority": 1
+            "priority": 2
         }
         
         # Bug fix template
@@ -56,7 +68,7 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["bug", "fix", "issue", "problem", "error", "defect"],
-            "priority": 2
+            "priority": 3
         }
         
         # Refactor template
@@ -68,7 +80,7 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["refactor", "cleanup", "improve", "optimize", "restructure"],
-            "priority": 3
+            "priority": 4
         }
         
         # Version upgrade template
@@ -80,7 +92,7 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["upgrade", "update", "version", "dependency", "package"],
-            "priority": 4
+            "priority": 5
         }
         
         # Configuration update template
@@ -92,19 +104,19 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["config", "configuration", "settings", "environment", "deploy"],
-            "priority": 5
+            "priority": 6
         }
-        
-        # Schema change template
-        self.templates["schema_change"] = {
-            "name": "schema_change",
+
+        # Feature Schema Change template (Composite)
+        self.templates["feature_schema_change"] = {
+            "name": "feature_schema_change",
             "version": "1.0",
-            "description": "Template for database or GraphQL schema changes",
+            "description": "Template for feature-related schema changes",
             "category": "data",
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
-            "keywords": ["schema", "database", "graphql", "migration", "table"],
-            "priority": 6
+            "keywords": ["schema", "feature", "graphql", "migration"],
+            "priority": 7
         }
         
         # Test generation template
@@ -116,7 +128,7 @@ class TemplateEngine:
             "required_fields": ["ticket_id", "summary", "description"],
             "optional_fields": ["acceptance_criteria", "files_affected", "labels", "components"],
             "keywords": ["test", "testing", "unit", "integration", "coverage"],
-            "priority": 7
+            "priority": 8
         }
     
     def has_template(self, template_name: str) -> bool:
