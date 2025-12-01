@@ -1,6 +1,6 @@
 [project]
 name = "jr-dev-mcp"
-version = "2.0.0"
+version = "2.0.1"
 description = "Jr Dev Agent - Pure MCP Server for Cross-IDE AI Agent Prompt Generation"
 requires-python = ">=3.10"
 dependencies = [
