@@ -21,7 +21,7 @@ vector = [
 ]
 
 [project.scripts]
-jr-dev-mcp = "langgraph_mcp.mcp_server:main"
+jr-dev-mcp = "jr_dev_agent.server.main:app"
 
 [tool.setuptools]
 package-dir = {"" = "."}
