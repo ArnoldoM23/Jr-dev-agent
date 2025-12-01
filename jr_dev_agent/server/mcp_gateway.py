@@ -154,26 +154,31 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
                 "initialize": "POST /",
                 "tools_list": "POST /",
                 "tools_call": "POST /",
-                "sse": "GET /sse"
+                "mcp": "GET /mcp"
             }
         }
     
-    @app.get("/sse")
-    async def mcp_sse():
+    @app.get("/mcp")
+    async def mcp_endpoint():
         """
-        SSE (Server-Sent Events) endpoint for Cursor MCP integration
+        MCP endpoint for Cursor MCP integration
         
-        Keeps connection open and handles MCP protocol via SSE.
+        Keeps connection open and handles MCP protocol via server-sent events.
         """
         async def event_generator():
             # Send initial connection message
-            yield f"data: {json.dumps({'type': 'connection', 'status': 'connected'})}\n\n"
+            # Use endpoint='/' to tell client to POST all JSON-RPC messages to root
+            yield f"event: endpoint\ndata: http://127.0.0.1:8000/\n\n"
             
             # Keep connection alive
             import asyncio
-            while True:
-                await asyncio.sleep(30)
-                yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+            try:
+                while True:
+                    await asyncio.sleep(30)
+                    yield f"event: ping\ndata: {json.dumps({'type': 'ping'})}\n\n"
+            except asyncio.CancelledError:
+                logger.info("MCP connection closed by client")
+                raise
         
         return StreamingResponse(
             event_generator(),
@@ -186,6 +191,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
         )
     
     @app.post("/", response_model=None)
+    @app.post("/mcp", response_model=None)  # Handle POST to /mcp as well to support fallback/defaults
     async def mcp_root(request: MCPRequest) -> Dict[str, Any]:
         """
         Root MCP endpoint for HTTP-based MCP clients
