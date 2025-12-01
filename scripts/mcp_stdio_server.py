@@ -216,7 +216,7 @@ class MCPStdioServer:
                     "message": f"Gateway unreachable: {str(e)}"
                 }
             }
-
+    
     async def run(self):
         """Run the STDIO server loop"""
         await self.initialize()

@@ -302,7 +302,7 @@ services:
     image: adminer:4.8.1
     container_name: jr_dev_adminer
     ports:
-      - "8080:8080"
+      - "8000:8000"
     environment:
       ADMINER_DEFAULT_SERVER: postgres
     depends_on:

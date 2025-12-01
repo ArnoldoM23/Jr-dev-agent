@@ -1,5 +1,8 @@
 import re
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None
 import textwrap
 from typing import Dict, Any, Optional
 import structlog
@@ -44,7 +47,7 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
              yaml_content = textwrap.dedent(yaml_content)
              logger.debug("Attempting to parse full description as YAML")
 
-    if yaml_content:
+    if yaml and yaml_content:
         try:
             data = yaml.safe_load(yaml_content)
             if isinstance(data, dict):
@@ -53,6 +56,8 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
                 return data
         except yaml.YAMLError as e:
             logger.warning("Failed to parse YAML from description", error=str(e))
+    elif not yaml and yaml_content:
+        logger.warning("PyYAML not installed - skipping YAML parsing strategies")
             
     # Strategy 3: Regex Fallback for "dirty" YAML or partial template
     # This handles cases where copy-paste artifacts (like "reference files" lines) break strict YAML
