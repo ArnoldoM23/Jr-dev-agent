@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "jrdev": {
-      "command": "python",
-      "args": ["scripts/mcp_stdio_server.py"]
+      "url": "http://localhost:8080/mcp"
     }
   }
 }
