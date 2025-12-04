@@ -93,24 +93,39 @@ class PromptBuilder:
         
         labels = ticket_data.get('labels', [])
         if isinstance(labels, list):
-            labels_text = ', '.join(labels)
+            labels_text = ', '.join([str(l) for l in labels])
         else:
             labels_text = str(labels)
         
         components = ticket_data.get('components', [])
         if isinstance(components, list):
-            components_text = ', '.join(components)
+            components_text = ', '.join([str(c) for c in components])
         else:
             components_text = str(components)
         
         # Add enrichment context if available
         enrichment_section = ""
         if enrichment_data and enrichment_data.get('context_enriched'):
+            # Safely handle related_files and related_tickets
+            related_files = enrichment_data.get('related_files', [])
+            if isinstance(related_files, dict):
+                related_files_text = ', '.join([str(k) for k in related_files.keys()])
+            elif isinstance(related_files, list):
+                related_files_text = ', '.join([str(f) for f in related_files])
+            else:
+                related_files_text = str(related_files)
+
+            related_tickets = enrichment_data.get('related_tickets', [])
+            if isinstance(related_tickets, list):
+                related_tickets_text = ', '.join([str(t) for t in related_tickets])
+            else:
+                related_tickets_text = str(related_tickets)
+
             enrichment_section = f"""
 ## 🧠 Context & Insights
 - **Complexity Score**: {enrichment_data.get('complexity_score', 'N/A')}
-- **Related Files**: {', '.join(enrichment_data.get('related_files', [])) or 'None identified'}
-- **Related Tickets**: {', '.join(enrichment_data.get('related_tickets', [])) or 'None identified'}
+- **Related Files**: {related_files_text or 'None identified'}
+- **Related Tickets**: {related_tickets_text or 'None identified'}
 """
         
         prompt = f"""# 🎯 Development Task: {ticket_data['summary']}

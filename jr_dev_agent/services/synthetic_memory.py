@@ -236,10 +236,14 @@ class SyntheticMemory:
         for pack in memory_packs:
             score = self._calculate_relevance_score(pack, files_referenced, template_type, current_time)
             if score > 0:  # Only include relevant runs
+                # Extract file names from pack files
+                pack_files = pack.get("files", {}).get("files", [])
+                files_list = [f.get("name", str(f)) if isinstance(f, dict) else str(f) for f in pack_files]
+                
                 run_data = {
                     "ticket_id": pack["ticket_id"],
                     "score": score,
-                    "files_touched": pack.get("files", {}).get("files", []),
+                    "files_touched": files_list,
                     "result": pack.get("agent_run", {}).get("result", "unknown"),
                     "pr_url": pack.get("agent_run", {}).get("pr_url"),
                     "pess_score": pack.get("agent_run", {}).get("pess_score"),

@@ -41,7 +41,9 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
     else:
         # Strategy 2: Attempt to parse the entire description as YAML
         # (Use a heuristic to check if it looks like YAML key-values)
-        if ":" in description and "name:" in description:
+        # Check case-insensitively
+        description_lower = description.lower()
+        if ":" in description and "name:" in description_lower:
              yaml_content = description
              # Attempt dedent just in case
              yaml_content = textwrap.dedent(yaml_content)
@@ -51,6 +53,8 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
         try:
             data = yaml.safe_load(yaml_content)
             if isinstance(data, dict):
+                # Normalize keys to lowercase to handle "Name:" vs "name:"
+                data = {k.lower(): v for k, v in data.items()}
                 logger.info("Successfully extracted template from description", 
                             template_name=data.get('name'))
                 return data
@@ -61,24 +65,25 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
             
     # Strategy 3: Regex Fallback for "dirty" YAML or partial template
     # This handles cases where copy-paste artifacts (like "reference files" lines) break strict YAML
-    if ":" in description and "name:" in description:
+    description_lower = description.lower()
+    if ":" in description and "name:" in description_lower:
         logger.debug("Attempting regex fallback for template extraction")
         extracted = {}
         
         # Extract name
-        name_match = re.search(r"^name:\s*(.+)$", description, re.MULTILINE)
+        name_match = re.search(r"^name:\s*(.+)$", description, re.MULTILINE | re.IGNORECASE)
         if name_match:
             extracted["name"] = name_match.group(1).strip()
             
         # Extract prompt_text
         # Look for prompt_text: followed by optional | or >
         # Capture until next root-level key (word:) or end of string
-        prompt_match = re.search(r"^prompt_text:\s*[|>]?(.*?)(?=^[\w-]+:|\Z)", description, re.MULTILINE | re.DOTALL)
+        prompt_match = re.search(r"^prompt_text:\s*[|>]?(.*?)(?=^[\w-]+:|\Z)", description, re.MULTILINE | re.DOTALL | re.IGNORECASE)
         if prompt_match:
             extracted["prompt_text"] = prompt_match.group(1).strip()
             
         # Extract feature if present
-        feature_match = re.search(r"^feature:\s*(.+)$", description, re.MULTILINE)
+        feature_match = re.search(r"^feature:\s*(.+)$", description, re.MULTILINE | re.IGNORECASE)
         if feature_match:
             extracted["feature"] = feature_match.group(1).strip()
 
