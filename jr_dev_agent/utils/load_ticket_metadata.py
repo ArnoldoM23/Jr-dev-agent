@@ -18,6 +18,7 @@ Version: 1.0
 
 import json
 import os
+import re
 from typing import Dict, Any, Optional
 from pathlib import Path
 import structlog
@@ -36,6 +37,7 @@ JIRA_MCP_URL = os.getenv("JIRA_MCP_URL", "https://mcp.walmart.com/api/jira")
 JIRA_TIMEOUT = int(os.getenv("JIRA_TIMEOUT", "5"))
 FALLBACK_DIR = Path(__file__).parent.parent / "fallback"
 FALLBACK_FILE = FALLBACK_DIR / "jira_prompt.json"
+FALLBACK_TEMPLATE_FILE = FALLBACK_DIR / "jira_ticket_template.txt"
 
 @dataclass
 class JiraMetadata:
@@ -149,9 +151,100 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
                 error=str(exc)
             )
     
-    # MCP not available or failed - trigger fallback
+    # MCP not available or failed - trigger fallback chain
     logger.info(f"[MCP Fallback Triggered] Reason: MCP unavailable for {ticket_id}")
+    
+    # Step 1: Check for manual text template
+    text_metadata = load_from_text_template(ticket_id)
+    if text_metadata:
+        try:
+            return validate_ticket_metadata(text_metadata).to_dict()
+        except ValueError as e:
+            logger.warning(f"Text template validation failed: {e}. Falling back to JSON.")
+
+    # Step 2: Fallback to static JSON
     return load_from_fallback(ticket_id)
+
+def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load metadata from manual text template fallback file.
+    
+    Args:
+        ticket_id: Ticket ID to verify against or use
+        
+    Returns:
+        Dictionary of metadata or None if not found/empty
+    """
+    try:
+        if not FALLBACK_TEMPLATE_FILE.exists():
+            return None
+            
+        content = FALLBACK_TEMPLATE_FILE.read_text(encoding="utf-8")
+        if not content.strip():
+            return None
+            
+        logger.info(f"Checking text template fallback: {FALLBACK_TEMPLATE_FILE}")
+        
+        # 1. Extract Ticket ID override from file
+        # Format: Jira_Ticket: CEPG-67890
+        file_ticket_id = None
+        ticket_match = re.search(r"Jira_Ticket:\s*([A-Z]+-\d+)", content, re.IGNORECASE)
+        if ticket_match:
+             file_ticket_id = ticket_match.group(1).strip()
+             if file_ticket_id:
+                 # Use the ID from the file as it's explicitly entered by the dev
+                 ticket_id = file_ticket_id
+        
+        # 2. Extract Description/Template content
+        separator_match = re.search(r"Paste Template below\s*-+", content, re.IGNORECASE)
+        
+        if separator_match:
+            description_text = content[separator_match.end():].strip()
+        else:
+            # Fallback: strip header line if no separator found
+            lines = [l for l in content.splitlines() if not l.strip().lower().startswith("jira_ticket:")]
+            description_text = "\n".join(lines).strip()
+            
+        if not description_text:
+            logger.warning("Text template file is empty after stripping header")
+            return None
+            
+        # 3. Parse description for template structure
+        extracted = extract_template_from_description(description_text) or {}
+        
+        # Map Reference_Files to files_affected
+        files_affected = []
+        # Check keys case-insensitively (parser returns lowercase keys if YAML parsed)
+        if "reference_files" in extracted and isinstance(extracted["reference_files"], list):
+            files_affected = extracted["reference_files"]
+        elif "Reference_Files" in extracted and isinstance(extracted["Reference_Files"], list):
+            files_affected = extracted["Reference_Files"]
+        elif "file_references" in extracted and isinstance(extracted["file_references"], list):
+            files_affected = extracted["file_references"]
+        elif "files_affected" in extracted and isinstance(extracted["files_affected"], list):
+            files_affected = extracted["files_affected"]
+            
+        # 4. Construct metadata
+        metadata = {
+            "ticket_id": ticket_id,
+            "template_name": extracted.get("name", "feature"),
+            "summary": extracted.get("feature", f"Task {ticket_id}"),
+            "description": description_text,
+            "feature": extracted.get("feature", "unknown_feature"),
+            "prompt_text": extracted.get("prompt_text"),
+            "priority": "medium",
+            "story_points": 0,
+            "labels": [],
+            "files_affected": files_affected,
+            "acceptance_criteria": [],
+            "_fallback_used": "text_template"
+        }
+        
+        return metadata
+        
+    except Exception as e:
+        logger.warning(f"Failed to load from text template: {e}")
+        return None
 
 def load_from_fallback(ticket_id: str) -> Dict[str, Any]:
     """
