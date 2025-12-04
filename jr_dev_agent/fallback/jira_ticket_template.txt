@@ -1,6 +1,82 @@
-Jira_Ticket: {Enter Jira ticket ex CEPG-67890}
+Jira_Ticket: CEPG-2121
 
 
 Paste Template below
 ------------------------------------------------------------------------------------------------------
 
+Name: feature_schema_change
+
+Feature_Name: PFS Feature
+ 
+Version: 1.0
+ 
+Type: feature/schema_change
+ 
+Description: |
+  Use this template when making GraphQL schema changes such as adding fields, input types, or modifying existing types.
+  Schema changes must be backward-compatible and do not support CCM gating. This template also ensures that `npm run generate` is run to sync type definitions.  
+ 
+Prompt_Text: |
+  You are a software engineer. Your task is to update the GraphQL schema based on the following requirements.
+ 
+  **Schema Requirements:**
+  - Modify or extend the GraphQL types, inputs, or enums listed below.
+  - Ensure all changes are backward-compatible. Do not delete or rename fields unless explicitly approved.
+  - Add new fields with accurate types and optional flags where appropriate.
+  - Follow naming conventions and keep schema files cleanly formatted.
+ 
+- Your task is to update GraphQL Schema for new feature ______. **Schema Updates:** - The GraphQL type ShippingStrategies should now includes a new field called sla of type SLA. - The mutation updateShippingStrategy should include a new optional input field sla of type SLAInput. **Task Requirements:** - Update the schema to with the correct fields. - Update the ShippingStrategies Type to accept the sla input field. - Use this exact format:
+ 
+ 
+Schema_Types:
+ 
+SLA {
+ 
+tier: string!
+ 
+unit: string!
+ 
+value: float!
+ 
+}
+ 
+SLAInput {
+ 
+tier: string!
+ 
+unit: string!
+ 
+value: float!
+ 
+}
+ 
+ 
+**Post-Schema Task:**
+  - After updating the schema files, run the following command to regenerate types:
+   
+    ```bash
+    npm run generate
+    ```
+ 
+  - Do NOT skip this step. All resolvers and types must remain in sync.
+  - Ensure that this command completes without errors and updates all affected generated files.
+ 
+  **Scope:**
+  - Only edit the schema files listed in the file references.
+  - Do not modify any other application logic or unrelated schema parts.  
+ 
+ 
+Reference_Files:
+"ce-cartxo/src/type-defs/gql/"
+"ce-cartxo/src/type-defs/gql/common/contract/fulfillment/update-shipping-strategy.graphql"
+"ce-cartxo/src/type-defs/gql/common/contract/fulfillment/fulfillment-group/shipping-strategies.graphql"
+ 
+ 
+ 
+fields_required:
+- schema_updates
+- mutation_inputs
+- resolver_names
+- ccm_flag_name
+- file_references
+- unit_test_files
