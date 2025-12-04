@@ -16,8 +16,8 @@ Transform Jira tickets into working pull requests through AI automation. Simply 
 │   Cursor        │◄──►│   MCP Server    │◄──►│   Integration   │
 │   Windsurf      │    │                 │    │                 │
 │   Any MCP IDE   │    └─────────┬───────┘    └─────────────────┘
+│                 │              │
 └─────────────────┘              │
-                                 │
                     ┌────────────┼────────────┐
                     │            │            │
             ┌───────▼────┐ ┌─────▼─────┐ ┌───▼────────────┐
@@ -33,16 +33,16 @@ Transform Jira tickets into working pull requests through AI automation. Simply 
 Central request router and workflow coordinator for `/jrdev` commands across all IDEs
 
 ### 2. 🧠 **Synthetic Memory MVP**
-Filesystem-based knowledge store (`syntheticMemory/`) with automatic context enrichment and vector DB upgrade path
+Filesystem-based knowledge store (`syntheticMemory/`) with automatic context enrichment and vector DB upgrade path. Now features **robust "dirty" memory handling** and safe type enforcement for resilience against malformed history.
 
 ### 3. 📊 **PESS Integration** 
 Prompt Effectiveness Scoring System for continuous improvement and telemetry
 
 ### 4. 🧱 **PromptBuilder (Hybrid)**
-Deterministic template filling with optional LLM assist for tone/scoping/edge cases
+Deterministic template filling with optional LLM assist for tone/scoping/edge cases. Supports dynamic template parsing directly from Jira ticket descriptions.
 
-### 5. 🔗 **Jira Integration**
-Fetches ticket metadata including YAML prompt templates embedded in descriptions
+### 5. 🔗 **Jira Integration & Fallbacks**
+Fetches ticket metadata including YAML prompt templates embedded in descriptions. Includes a **Manual Text Fallback** for completely offline operation.
 
 ### 6. 🌐 **Cross-IDE Compatibility**
 Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
@@ -52,8 +52,8 @@ Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
 ### Prerequisites
 - Python 3.11+
 - MCP-compatible IDE (VS Code, Cursor, Windsurf)
-- Jira access (or use fallback mode)
-- `pip install -r requirements.txt` must be run inside your virtualenv (the repo includes a lightweight `langgraph/` stub so no extra install is required for that dependency when running offline)
+- Jira access (or use **manual fallback mode**)
+- `pip install -r requirements.txt` must be run inside your virtualenv
 
 ### 1. Installation
 ```bash
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 ### 2. Configuration
 ```bash
 cp config.json.example config.json
-# Edit config.json with your Jira settings
+# Edit config.json with your settings if needed
 ```
 
 ### 3. Start MCP Gateway Server
@@ -123,73 +123,54 @@ In Cursor chat, type:
 In Cursor chat, type `/` and select `jrdev/prepare_agent_task`.
 1. Enter the `ticket_id` when prompted.
 2. Cursor will execute the prompt and insert the result into the **Chat History**.
-3. You can then Copy-Paste it into the input box (Cursor does not yet support auto-filling the input box from prompts).
+3. You can then Copy-Paste it into the input box.
+
+#### Manual Fallback (Offline Mode) 🛠️
+If the Jira MCP server is unavailable or you want to test locally without Jira:
+1. Open `jr_dev_agent/fallback/jira_ticket_template.txt`.
+2. Paste your ticket details using the provided format (ID, Description, Template Fields).
+3. Run the command as usual: `@jrdev prepare_agent_task CEPG-12345`.
+4. The agent will detect the file and use it as the source of truth.
 
 #### Workflow
 The system will:
-1. 🎫 Fetch Jira ticket metadata
+1. 🎫 Fetch Jira ticket metadata (or read from fallback)
 2. 🧱 Build structured prompt using templates  
 3. 🧠 Enrich with Synthetic Memory context
 4. 📝 Return ready-to-run prompt
 5. ⚡ **Execute the prompt with the AI Agent**
 
-**Note**: Due to current Cursor MCP limitations, the prompt appears as a response (not injected into the input box). Simply copy-paste it into a new message to execute.
-
-### 6. Local Demo (optional)
-With the server running you can exercise the entire workflow without curl:
-```bash
-python scripts/demo_mcp_workflow.py --ticket CEPG-67890 --session demo-session
-```
-This prints the tool list, generated prompt, mock PESS score, and the Confluence template update (stored under `syntheticMemory/_confluence_updates/`).
-
 ## 📋 Commands
 
 | Command | Description |
 |---------|-------------|
-| `/jrdev TICKET-ID` | Generate agent-ready prompt for ticket |
+| `@jrdev prepare_agent_task ID` | Generate agent-ready prompt for ticket |
 | Health endpoint: `GET /health` | Check server status |
-| MCP finalize tool | `/mcp/tools/call` with `finalize_session` to record feedback and scores |
+| MCP finalize tool | `/mcp/tools/call` with `finalize_session` |
 
 For scripted demos use `python scripts/demo_mcp_workflow.py`.
 
 ## 🧠 Synthetic Memory System
 
-The system automatically creates a learning knowledge base:
-
-```
-syntheticMemory/
-├── features/
-│   ├── new_feature/
-│   │   └── CEPG-12345/
-│   │       ├── summary.json      # Ticket metadata
-│   │       ├── files.json        # File relationships  
-│   │       ├── graph.json        # Connected features
-│   │       ├── agent_run.json    # PESS results
-│   │       └── README.md         # Human context
-│   └── ...
-```
+The system automatically creates a learning knowledge base in `syntheticMemory/`.
 
 **Memory Enrichment** automatically adds context like:
 - 🔗 Related files and features you've worked on before
 - 📊 Complexity scores and relationships
 - 🎯 Connected features and dependencies
 
-## 📊 PESS Scoring
-
-After each PR, get automated feedback:
-- **Prompt Score**: How effective was the generated prompt?
-- **Clarity Rating**: Was the instruction clear and actionable?
-- **Risk Score**: Potential issues or improvements
-- **Recommendations**: How to improve future prompts
-
 ## 🧪 Development & Testing
 
-- Run the integration smoke test:
+- **Run the full E2E lifecycle test:**
+  ```bash
+  # Verifies fallback flow, memory enrichment, and prompt generation
+  python tests/e2e/test_full_lifecycle_with_memory.py
+  ```
+- **Run integration smoke test:**
   ```bash
   pytest tests/integration/test_mcp_gateway_endpoints.py
   ```
-- For manual demos start the gateway (`python scripts/start_mcp_gateway.py`) and run `python scripts/demo_mcp_workflow.py`.
-- Enable fallback-only mode by exporting `DEV_MODE=true` before launching the server.
+- Enable fallback-only mode by exporting `DEV_MODE=true`.
 
 ## 📁 Project Structure
 
@@ -197,98 +178,42 @@ After each PR, get automated feedback:
 jr-dev-agent/
 ├── config.json              # Configuration
 ├── jr_dev_agent/           # Main application
-│   ├── server/main.py       # FastAPI server
-│   ├── mcp/                 # v2 MCP Orchestrator
-│   │   ├── handlers/        # Command handlers
-│   │   ├── jira_client.py   # Jira integration
-│   │   ├── prompt_builder.py # Hybrid prompt builder
-│   │   ├── memory.py        # Synthetic Memory
-│   │   └── pess_client.py   # PESS integration
-│   ├── graph/               # LangGraph workflow (v1)
+│   ├── server/              # Server components
+│   │   ├── main.py          # FastAPI app
+│   │   └── mcp_gateway.py   # MCP Protocol Handler
+│   ├── tools/               # MCP Tools (prepare, finalize, health)
 │   ├── services/            # Core services
+│   │   ├── prompt_builder.py # Hybrid prompt builder
+│   │   ├── synthetic_memory.py # Memory System
+│   │   └── template_engine.py  # Template Logic
+│   ├── graph/               # LangGraph workflow
 │   └── fallback/            # Development fallbacks
+│       ├── jira_prompt.json         # JSON Fallback
+│       └── jira_ticket_template.txt # Manual Text Fallback
 ├── syntheticMemory/         # Learning knowledge base
 ├── scripts/                 # Development tools
 └── tests/                   # Test suites
+    ├── e2e/                 # End-to-end scenarios
+    └── integration/         # Integration tests
 ```
-
-## 🔧 Configuration & MCP Secrets
-
-Key configuration options live in `config.json` (used mainly for the filesystem synthetic memory backend). When connecting to the enterprise MCP servers supply the following environment variables before starting the gateway:
-
-```bash
-export JIRA_MCP_URL="https://mcp-jira.stage.walmart.com/mcp/"
-export JIRA_MCP_TOKEN="Bearer <PINGFED_TOKEN>"
-export CONFLUENCE_MCP_URL="https://mcp-confluence.stage.walmart.com/mcp/"
-export CONFLUENCE_MCP_TOKEN="Bearer <PINGFED_TOKEN>"
-```
-
-If these are not set the gateway automatically falls back to the local `jr_dev_agent/fallback/jira_prompt.json` ticket data and writes Confluence updates to `syntheticMemory/_confluence_updates/`.
-
-The default `config.json` controls the synthetic memory backend:
-
-```json
-{
-  "memory": {
-    "backend": "fs",              // "fs" or "vector"
-    "fs": {
-      "root_dir": "syntheticMemory"
-    }
-  },
-  "jira": {
-    "base_url": "https://your.atlassian.net",
-    "token": "your-token"
-  },
-  "pess": {
-    "url": "https://your-pess-server.com",
-    "enabled": true
-  }
-}
-```
-
-## 🚀 Deployment
-
-### Docker
-```bash
-docker build -t jr-dev-agent -f jr_dev_agent/Dockerfile .
-docker run -p 8000:8000 jr-dev-agent
-```
-
-### Production
-- Set `DEV_MODE=false`
-- Configure proper Jira credentials
-- Set up PESS scoring endpoint
-- Enable vector DB for Synthetic Memory scaling
 
 ## 🔄 Migration from v1
 
 v2 maintains full backwards compatibility with v1 while adding:
-- ✅ Cross-IDE MCP compatibility (vs. VS Code-only)
+- ✅ Cross-IDE MCP compatibility
 - ✅ Simplified single-server architecture  
 - ✅ Filesystem-based Synthetic Memory MVP
-- ✅ Improved PESS integration
-- ✅ No extension installation required
+- ✅ **Robust Manual Fallback for Offline Dev**
+- ✅ **Dynamic Template Parsing from Jira Descriptions**
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Run tests: `python scripts/test_v2_mcp_orchestrator.py`
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push branch: `git push origin feature/amazing-feature`
-6. Open Pull Request
+3. Run tests: `python tests/e2e/test_full_lifecycle_with_memory.py`
+4. Commit changes
+5. Push branch and Open Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- 📧 Email: support@jr-dev-agent.com
-- 💬 Slack: #jr-dev-agent
-- 🐛 Issues: [GitHub Issues](https://github.com/your-org/jr-dev-agent/issues)
-- 📖 Docs: [Documentation](https://docs.jr-dev-agent.com)
-
----
-
-**🎉 Jr Dev Agent v2 - From Jira Ticket to Working PR in seconds!**
+This project is licensed under the MIT License.
