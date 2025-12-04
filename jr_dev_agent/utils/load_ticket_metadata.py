@@ -133,6 +133,16 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
             ticket_id=ticket_id,
             dev_mode=True
         )
+        # Try Text Template first even in Dev Mode
+        text_metadata = load_from_text_template(ticket_id)
+        if text_metadata:
+            try:
+                result = validate_ticket_metadata(text_metadata).to_dict()
+                result["_fallback_used"] = "text_template"
+                return result
+            except ValueError as e:
+                logger.warning(f"Text template validation failed: {e}. Falling back to JSON.")
+                
         return load_from_fallback(ticket_id)
     
     # Attempt to use the Jira MCP client when configured
@@ -158,7 +168,9 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
     text_metadata = load_from_text_template(ticket_id)
     if text_metadata:
         try:
-            return validate_ticket_metadata(text_metadata).to_dict()
+            result = validate_ticket_metadata(text_metadata).to_dict()
+            result["_fallback_used"] = "text_template"
+            return result
         except ValueError as e:
             logger.warning(f"Text template validation failed: {e}. Falling back to JSON.")
 
