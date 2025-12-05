@@ -102,7 +102,10 @@ The server will run continuously. Keep this terminal open.
 
 ### 4. IDE Setup (Cursor/VS Code)
 
-In your project root (the project you are *working on*, not the agent repo), configure `.cursor/mcp.json` (or `.vscode/mcp.json`) to connect to your local Jr Dev Agent server.
+Configure `.cursor/mcp.json` (or `.vscode/mcp.json`) to connect to your local Jr Dev Agent server. You can use either STDIO (recommended for local) or SSE (HTTP).
+
+#### Option A: STDIO (Recommended for Local)
+This launches the server automatically when you open the IDE.
 
 ```json
 {
@@ -119,6 +122,20 @@ In your project root (the project you are *working on*, not the agent repo), con
 }
 ```
 *Ensure you update `/absolute/path/to/jr-dev-agent` to your actual path.*
+
+#### Option B: SSE (HTTP)
+If you are running the server manually (via `scripts/start_mcp_gateway.py`) or remotely.
+
+```json
+{
+  "mcpServers": {
+    "jrdev-sse": {
+      "url": "http://127.0.0.1:8000/mcp",
+      "transport": "sse"
+    }
+  }
+}
+```
 
 **No additional setup needed!** Cursor will automatically use this configuration.
 
