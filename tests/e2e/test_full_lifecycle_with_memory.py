@@ -15,16 +15,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("e2e_full_lifecycle")
 
 from jr_dev_agent.graph.jr_dev_graph import JrDevGraph
-from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata, FALLBACK_TEMPLATE_FILE
+from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata, FALLBACK_TEMPLATE_FILE, REPO_TEMPLATE_FILE
 
 async def test_full_lifecycle_with_memory():
     logger.info("🚀 Starting Full Lifecycle E2E Test (with dirty memory)")
     
     # Setup paths
     mem_root = Path("temp_e2e_memory")
-    fallback_backup = Path(str(FALLBACK_TEMPLATE_FILE) + ".bak")
     config_path = Path("config.json")
     config_backup = Path("config.json.bak")
+    
+    # Backup paths for fallback templates
+    fallback_backup = Path(str(FALLBACK_TEMPLATE_FILE) + ".bak")
+    repo_backup = Path(str(REPO_TEMPLATE_FILE) + ".bak")
     
     # Cleanup existing
     if mem_root.exists():
@@ -72,9 +75,11 @@ async def test_full_lifecycle_with_memory():
         logger.info("✅ Created dirty memory environment")
 
         # 2. Setup Fallback Template (Simulate user input)
-        if FALLBACK_TEMPLATE_FILE.exists():
-            shutil.copy(FALLBACK_TEMPLATE_FILE, fallback_backup)
-            
+        # Backup Repo Template if exists (to avoid interference from real user file)
+        if REPO_TEMPLATE_FILE.exists():
+             shutil.copy(REPO_TEMPLATE_FILE, repo_backup)
+             logger.info(f"Backed up existing repo template to {repo_backup}")
+
         template_content = """Jira_Ticket: E2E-CURRENT-1
 
 Paste Template below
@@ -88,8 +93,9 @@ Prompt_Text: |
 Reference_Files:
   - src/legacy.ts
 """
-        FALLBACK_TEMPLATE_FILE.write_text(template_content, encoding="utf-8")
-        logger.info("✅ Created fallback template")
+        # Write to REPO root file to test the primary fallback path
+        REPO_TEMPLATE_FILE.write_text(template_content, encoding="utf-8")
+        logger.info("✅ Created repo root fallback template")
 
         # 3. Initialize Graph with Custom Memory Root
         graph = JrDevGraph()
@@ -145,6 +151,16 @@ Reference_Files:
         # Cleanup
         if mem_root.exists():
             shutil.rmtree(mem_root)
+        
+        # Restore Repo Template
+        if repo_backup.exists():
+             shutil.move(repo_backup, REPO_TEMPLATE_FILE)
+             logger.info("Restored repo template backup")
+        elif REPO_TEMPLATE_FILE.exists():
+             os.remove(REPO_TEMPLATE_FILE)
+             logger.info("Removed temporary repo template")
+             
+        # Restore Internal Fallback if we touched it (we didn't in this version, but good practice)
         if fallback_backup.exists():
             shutil.move(fallback_backup, FALLBACK_TEMPLATE_FILE)
         
@@ -161,4 +177,3 @@ Reference_Files:
 if __name__ == "__main__":
     success = asyncio.run(test_full_lifecycle_with_memory())
     sys.exit(0 if success else 1)
-
