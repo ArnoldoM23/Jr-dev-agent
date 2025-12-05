@@ -111,7 +111,7 @@ This launches the server automatically when you open the IDE.
 {
   "mcpServers": {
     "jrdev": {
-      "command": "/absolute/path/to/jr-dev-agent/.venv/bin/python",
+      "command": "/absolute/path/to/jr-dev-agent/.venv/bin/python3",
       "args": ["/absolute/path/to/jr-dev-agent/scripts/mcp_stdio_server.py"],
       "env": {
         "PYTHONPATH": "/absolute/path/to/jr-dev-agent",
@@ -129,9 +129,8 @@ If you are running the server manually (via `scripts/start_mcp_gateway.py`) or r
 ```json
 {
   "mcpServers": {
-    "jrdev-sse": {
+    "jrdev": {
       "url": "http://127.0.0.1:8000/mcp",
-      "transport": "sse"
     }
   }
 }
