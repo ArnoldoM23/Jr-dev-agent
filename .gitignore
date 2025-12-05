@@ -326,3 +326,9 @@ local.config.js
 # END OF GITIGNORE
 # ========================================== 
 syntheticMemory/_confluence_updates/
+
+# Fallback Template in Root
+jira_ticket_template.txt
+
+# Test Memory
+temp_e2e_memory/
