@@ -134,15 +134,17 @@ def load_ticket_metadata(ticket_id: str, fallback_content: Optional[str] = None)
     if fallback_content:
         logger.info(f"Using provided fallback content for {ticket_id}")
         parsed = parse_text_template_content(fallback_content, ticket_id)
-        if parsed:
-             try:
-                 result = validate_ticket_metadata(parsed).to_dict()
-                 result["_fallback_used"] = "client_provided_content"
-                 return result
-             except ValueError as e:
-                 logger.warning(f"Client provided content validation failed: {e}")
-        else:
-             logger.warning("Provided fallback content failed to parse")
+        
+        if not parsed:
+             raise ValueError("Client-provided fallback content failed to parse. Please check the template format.")
+             
+        try:
+             result = validate_ticket_metadata(parsed).to_dict()
+             result["_fallback_used"] = "client_provided_content"
+             return result
+        except ValueError as e:
+             logger.error(f"Client provided content validation failed: {e}")
+             raise ValueError(f"Client-provided fallback content is invalid: {e}")
 
     # Check if dev mode is enabled (force fallback)
     if os.getenv("DEV_MODE", "false").lower() == "true":
