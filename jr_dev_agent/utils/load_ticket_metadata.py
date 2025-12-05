@@ -457,7 +457,11 @@ def create_fallback_file(ticket_id: str, metadata: Dict[str, Any]) -> None:
         try:
             lines = []
             lines.append(f"Jira_Ticket: {ticket_id}")
+<<<<<<< HEAD
             lines.append("")
+=======
+            lines.append("\n")
+>>>>>>> ee3b3d0e49de276bed59f8169d11481ef9030b27
             lines.append("Paste Template below")
             lines.append("-" * 100)
             
