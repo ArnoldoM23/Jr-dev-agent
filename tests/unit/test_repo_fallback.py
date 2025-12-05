@@ -20,6 +20,13 @@ class TestFallbackLogic(unittest.TestCase):
         self.assertEqual(result['template_name'], "explicit_template")
         self.assertEqual(result['_fallback_used'], "client_provided_content")
 
+    def test_explicit_content_failure(self):
+        """Test that invalid explicit content raises an exception"""
+        # Empty content returns None from parser, triggering the specific error
+        invalid_content = "   "
+        with self.assertRaisesRegex(ValueError, "Client-provided fallback content failed to parse"):
+            load_ticket_metadata("ANY-ID", fallback_content=invalid_content)
+
     @patch('jr_dev_agent.utils.load_ticket_metadata.REPO_TEMPLATE_FILE')
     @patch('jr_dev_agent.utils.load_ticket_metadata.FALLBACK_TEMPLATE_FILE')
     def test_repo_file_priority(self, mock_fallback, mock_repo):
