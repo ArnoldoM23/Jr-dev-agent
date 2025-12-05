@@ -44,8 +44,8 @@ Central request router and workflow coordinator for `/jrdev` commands across all
 ### 2. 🧠 **Synthetic Memory Engine**
 An advanced knowledge persistence layer that enables the agent to "learn" from past iterations. It automatically enriches new tasks with relevant context, historical file patterns, and architectural relationships, featuring robust type safety and self-healing capabilities to maintain data integrity across evolving schema versions.
 
-### 3. 📊 **PESS Integration** 
-Prompt Effectiveness Scoring System for continuous improvement and telemetry.
+### 3. 📊 **PESS Intelligence Layer** 
+An integrated Prompt Effectiveness Scoring System that quantitatively evaluates the quality of every generated prompt. By analyzing execution outcomes, it identifies gaps in template clarity and context, creating a feedback loop that signals when and how templates should be evolved to maintain high agent success rates.
 
 ### 4. 🧱 **Adaptive PromptBuilder**
 A hybrid deterministic/generative engine that constructs high-fidelity prompts. It dynamically parses ephemeral template schemas embedded directly within Jira descriptions, allowing teams to define and evolve their specification standards on the fly without code changes.
