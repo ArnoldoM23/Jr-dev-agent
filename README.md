@@ -127,10 +127,10 @@ In Cursor chat, type `/` and select `jrdev/prepare_agent_task`.
 
 #### Manual Fallback (Offline Mode) 🛠️
 If the Jira MCP server is unavailable or you want to test locally without Jira:
-1. Open `jr_dev_agent/fallback/jira_ticket_template.txt`.
-2. Paste your ticket details using the provided format (ID, Description, Template Fields).
-3. Run the command as usual: `@jrdev prepare_agent_task CEPG-12345`.
-4. The agent will detect the file and use it as the source of truth.
+1. Create a `jira_ticket_template.txt` file in your **project root directory**.
+2. Paste your ticket details using the provided format.
+3. Run the command: `@jrdev prepare_agent_task CEPG-12345`.
+4. The agent will automatically read this file and send its content to the MCP server, enabling offline/remote fallback support.
 
 #### Workflow
 The system will:

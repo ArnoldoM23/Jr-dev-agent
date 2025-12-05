@@ -48,6 +48,10 @@ MCP_TOOLS = {
                 "branch": {
                     "type": "string",
                     "description": "Branch name (optional)"
+                },
+                "fallback_template_content": {
+                    "type": "string",
+                    "description": "Content of local fallback template file (e.g. jira_ticket_template.txt) if present on client. The agent should read the file and pass its content here."
                 }
             },
             "required": ["ticket_id"]
@@ -337,7 +341,8 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
                 tool_args = PrepareAgentTaskArgs(
                     ticket_id=arguments.get("ticket_id"),
                     repo=arguments.get("repo"),
-                    branch=arguments.get("branch")
+                    branch=arguments.get("branch"),
+                    fallback_template_content=arguments.get("fallback_template_content")
                 )
                 
                 # Call the shared logic
