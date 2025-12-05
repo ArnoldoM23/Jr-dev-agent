@@ -451,7 +451,45 @@ def create_fallback_file(ticket_id: str, metadata: Dict[str, Any]) -> None:
         with open(FALLBACK_FILE, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
         
-        # Write plain text template as well if needed
+        # Write plain text template as well
+        try:
+            lines = []
+            lines.append(f"Jira_Ticket: {ticket_id}")
+            lines.append("\n")
+            lines.append("Paste Template below")
+            lines.append("-" * 100)
+            
+            lines.append(f"Name: {metadata.get('template_name', 'feature')}")
+            if metadata.get('feature'):
+                lines.append(f"Feature: {metadata.get('feature')}")
+            
+            # Handle description
+            desc = metadata.get('description', '')
+            if desc:
+                lines.append("Description: |")
+                for line in desc.splitlines():
+                    lines.append(f"  {line}")
+            
+            # Handle prompt_text
+            prompt = metadata.get('prompt_text', '')
+            if prompt:
+                lines.append("Prompt_Text: |")
+                for line in prompt.splitlines():
+                    lines.append(f"  {line}")
+
+            # Handle files
+            files = metadata.get('files_affected', [])
+            if files:
+                lines.append("Reference_Files:")
+                for f in files:
+                    lines.append(f"  - {f}")
+                    
+            text_content = "\n".join(lines)
+            FALLBACK_TEMPLATE_FILE.write_text(text_content, encoding="utf-8")
+            logger.info(f"Created text template fallback: {FALLBACK_TEMPLATE_FILE}")
+            
+        except Exception as text_error:
+            logger.warning(f"Failed to generate text template fallback: {text_error}")
         
         logger.info(
             "Created fallback file",
