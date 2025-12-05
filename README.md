@@ -38,8 +38,8 @@ The result is a precise, actionable prompt injected directly into your IDE, empo
 
 ## 🧠 Core Components
 
-### 1. 🎯 **MCP Orchestrator** 
-Central request router and workflow coordinator for `/jrdev` commands across all IDEs.
+### 1. 🎯 **Universal MCP Orchestrator** 
+The central nervous system of the agent, serving as a high-throughput request router and workflow coordinator. It abstracts IDE-specific implementations into a unified protocol, enabling seamless, consistent agent capabilities across VS Code, Cursor, Windsurf, and any future MCP-compliant environments.
 
 ### 2. 🧠 **Synthetic Memory Engine**
 An advanced knowledge persistence layer that enables the agent to "learn" from past iterations. It automatically enriches new tasks with relevant context, historical file patterns, and architectural relationships, featuring robust type safety and self-healing capabilities to maintain data integrity across evolving schema versions.
