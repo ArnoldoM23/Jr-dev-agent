@@ -2,7 +2,16 @@
 
 **AI-Powered Development Agent via Model Context Protocol (MCP)**
 
-Transform Jira tickets into working pull requests through AI automation. Simply type `@jrdev prepare_agent_task CEPG-12345` in any MCP-compatible IDE and receive a complete, agent-ready prompt injected directly into your chat input box.
+**Accelerate AI Adoption with Spec-Driven Development**
+
+Jr Dev Agent bridges the gap between traditional project management and modern AI-assisted coding. By transforming standardized Jira tickets into context-rich, agent-ready prompts, it enables a **spec-driven workflow** where Engineering Managers, Product Owners, and Developers can define requirements that AI agents can flawlessly implement.
+
+Simply type `@jrdev prepare_agent_task CEPG-12345` to trigger a sophisticated pipeline that:
+*   **Extracts** structured requirements from dynamic templates.
+*   **Enriches** context with historical knowledge from our Synthetic Memory.
+*   **Optimizes** instructions using the Prompt Effectiveness Scoring System (PESS).
+
+The result is a precise, actionable prompt injected directly into your IDE, empowering every developer—regardless of their AI experience—to ship high-quality code faster.
 
 > **⚠️ IMPORTANT**: The MCP gateway must be **running separately** before using `@jrdev` commands.  
 > Start it once with: `python scripts/start_mcp_gateway.py` and keep it running.  
@@ -30,22 +39,22 @@ Transform Jira tickets into working pull requests through AI automation. Simply 
 ## 🧠 Core Components
 
 ### 1. 🎯 **MCP Orchestrator** 
-Central request router and workflow coordinator for `/jrdev` commands across all IDEs
+Central request router and workflow coordinator for `/jrdev` commands across all IDEs.
 
-### 2. 🧠 **Synthetic Memory MVP**
-Filesystem-based knowledge store (`syntheticMemory/`) with automatic context enrichment and vector DB upgrade path. Now features **robust "dirty" memory handling** and safe type enforcement for resilience against malformed history.
+### 2. 🧠 **Synthetic Memory Engine**
+An advanced knowledge persistence layer that enables the agent to "learn" from past iterations. It automatically enriches new tasks with relevant context, historical file patterns, and architectural relationships, featuring robust type safety and self-healing capabilities to maintain data integrity across evolving schema versions.
 
 ### 3. 📊 **PESS Integration** 
-Prompt Effectiveness Scoring System for continuous improvement and telemetry
+Prompt Effectiveness Scoring System for continuous improvement and telemetry.
 
-### 4. 🧱 **PromptBuilder (Hybrid)**
-Deterministic template filling with optional LLM assist for tone/scoping/edge cases. Supports dynamic template parsing directly from Jira ticket descriptions.
+### 4. 🧱 **Adaptive PromptBuilder**
+A hybrid deterministic/generative engine that constructs high-fidelity prompts. It dynamically parses ephemeral template schemas embedded directly within Jira descriptions, allowing teams to define and evolve their specification standards on the fly without code changes.
 
-### 5. 🔗 **Jira Integration & Fallbacks**
-Fetches ticket metadata including YAML prompt templates embedded in descriptions. Includes a **Manual Text Fallback** for completely offline operation.
+### 5. 🔗 **Resilient Integration Layer**
+A fault-tolerant gateway that seamlessly bridges your IDE with enterprise tools like Jira. It features an intelligent multi-tiered fallback system, ensuring uninterrupted development workflows even during API outages or completely offline scenarios via local template overrides.
 
 ### 6. 🌐 **Cross-IDE Compatibility**
-Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
+Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE.
 
 ## 🚀 Quick Start
 
@@ -56,6 +65,8 @@ Works with VS Code, Cursor, Windsurf, and any MCP-aware IDE
 - `pip install -r requirements.txt` must be run inside your virtualenv
 
 ### 1. Installation
+Clone the repository and set up the server locally to connect it to your IDE.
+
 ```bash
 git clone https://github.com/your-org/jr-dev-agent.git
 cd jr-dev-agent
@@ -63,6 +74,8 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+*Note: If you encounter errors with the `python` command, try using `python3` instead, as your system may default to an older version or require the explicit alias.*
 
 ### 2. Configuration
 ```bash
@@ -87,24 +100,25 @@ You should see:
 
 The server will run continuously. Keep this terminal open.
 
-### 4. IDE Setup (Cursor)
+### 4. IDE Setup (Cursor/VS Code)
 
-The `.cursor/mcp.json` file is pre-configured to connect to the gateway via STDIO bridge:
+In your project root (the project you are *working on*, not the agent repo), configure `.cursor/mcp.json` (or `.vscode/mcp.json`) to connect to your local Jr Dev Agent server.
 
 ```json
 {
   "mcpServers": {
     "jrdev": {
-      "command": "${workspaceFolder}/.venv/bin/python",
-      "args": ["${workspaceFolder}/scripts/mcp_stdio_server.py"],
+      "command": "/absolute/path/to/jr-dev-agent/.venv/bin/python",
+      "args": ["/absolute/path/to/jr-dev-agent/scripts/mcp_stdio_server.py"],
       "env": {
-        "PYTHONPATH": "${workspaceFolder}",
+        "PYTHONPATH": "/absolute/path/to/jr-dev-agent",
         "PYTHONUNBUFFERED": "1"
       }
     }
   }
 }
 ```
+*Ensure you update `/absolute/path/to/jr-dev-agent` to your actual path.*
 
 **No additional setup needed!** Cursor will automatically use this configuration.
 
