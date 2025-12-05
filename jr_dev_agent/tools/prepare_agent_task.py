@@ -38,7 +38,10 @@ async def handle_prepare_agent_task(
     
     try:
         # Load complete ticket metadata
-        full_ticket_data = load_ticket_metadata(args.ticket_id)
+        full_ticket_data = load_ticket_metadata(
+            args.ticket_id,
+            fallback_content=args.fallback_template_content
+        )
         logger.info(f"Loaded ticket data for {args.ticket_id}: {list(full_ticket_data.keys())}")
         
         # Process ticket through existing LangGraph workflow

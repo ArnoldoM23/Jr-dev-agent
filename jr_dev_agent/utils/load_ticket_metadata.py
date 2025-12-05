@@ -38,6 +38,7 @@ JIRA_TIMEOUT = int(os.getenv("JIRA_TIMEOUT", "5"))
 FALLBACK_DIR = Path(__file__).parent.parent / "fallback"
 FALLBACK_FILE = FALLBACK_DIR / "jira_prompt.json"
 FALLBACK_TEMPLATE_FILE = FALLBACK_DIR / "jira_ticket_template.txt"
+REPO_TEMPLATE_FILE = Path.cwd() / "jira_ticket_template.txt"
 
 @dataclass
 class JiraMetadata:
@@ -101,12 +102,13 @@ class JiraAPIError(Exception):
     """Exception raised when Jira API fails"""
     pass
 
-def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
+def load_ticket_metadata(ticket_id: str, fallback_content: Optional[str] = None) -> Dict[str, Any]:
     """
     Load ticket metadata with fallback mechanism.
     
     Args:
         ticket_id: Jira ticket ID (e.g., "CEPG-67890")
+        fallback_content: Optional raw content string from client (e.g. from local file)
         
     Returns:
         Dictionary containing ticket metadata
@@ -123,9 +125,27 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
         "Loading ticket metadata",
         ticket_id=ticket_id,
         jira_url=JIRA_MCP_URL,
-        timeout=JIRA_TIMEOUT
+        timeout=JIRA_TIMEOUT,
+        has_fallback_content=bool(fallback_content)
     )
     
+    # Priority 0: Explicitly provided fallback content (from client via MCP tool arg)
+    # This takes precedence over everything, even Jira MCP, as it implies manual override
+    if fallback_content:
+        logger.info(f"Using provided fallback content for {ticket_id}")
+        parsed = parse_text_template_content(fallback_content, ticket_id)
+        
+        if not parsed:
+             raise ValueError("Client-provided fallback content failed to parse. Please check the template format.")
+             
+        try:
+             result = validate_ticket_metadata(parsed).to_dict()
+             result["_fallback_used"] = "client_provided_content"
+             return result
+        except ValueError as e:
+             logger.error(f"Client provided content validation failed: {e}")
+             raise ValueError(f"Client-provided fallback content is invalid: {e}")
+
     # Check if dev mode is enabled (force fallback)
     if os.getenv("DEV_MODE", "false").lower() == "true":
         logger.info(
@@ -164,7 +184,7 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
     # MCP not available or failed - trigger fallback chain
     logger.info(f"[MCP Fallback Triggered] Reason: MCP unavailable for {ticket_id}")
     
-    # Step 1: Check for manual text template
+    # Step 1: Check for manual text template (Server-side disk check)
     text_metadata = load_from_text_template(ticket_id)
     if text_metadata:
         try:
@@ -177,34 +197,29 @@ def load_ticket_metadata(ticket_id: str) -> Dict[str, Any]:
     # Step 2: Fallback to static JSON
     return load_from_fallback(ticket_id)
 
-def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
+def parse_text_template_content(content: str, ticket_id: str) -> Optional[Dict[str, Any]]:
     """
-    Load metadata from manual text template fallback file.
+    Parse raw text content into ticket metadata structure.
     
     Args:
-        ticket_id: Ticket ID to verify against or use
+        content: Raw string content of the template
+        ticket_id: Default ticket ID if not overridden in content
         
     Returns:
-        Dictionary of metadata or None if not found/empty
+        Dictionary of metadata or None if parsing fails
     """
     try:
-        if not FALLBACK_TEMPLATE_FILE.exists():
-            return None
-            
-        content = FALLBACK_TEMPLATE_FILE.read_text(encoding="utf-8")
         if not content.strip():
             return None
             
-        logger.info(f"Checking text template fallback: {FALLBACK_TEMPLATE_FILE}")
-        
-        # 1. Extract Ticket ID override from file
+        # 1. Extract Ticket ID override from content
         # Format: Jira_Ticket: CEPG-67890
         file_ticket_id = None
         ticket_match = re.search(r"Jira_Ticket:\s*([A-Z]+-\d+)", content, re.IGNORECASE)
         if ticket_match:
              file_ticket_id = ticket_match.group(1).strip()
              if file_ticket_id:
-                 # Use the ID from the file as it's explicitly entered by the dev
+                 # Use the ID from the content as it's explicitly entered by the dev
                  ticket_id = file_ticket_id
         
         # 2. Extract Description/Template content
@@ -218,7 +233,7 @@ def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
             description_text = "\n".join(lines).strip()
             
         if not description_text:
-            logger.warning("Text template file is empty after stripping header")
+            logger.warning("Text template content is empty after stripping header")
             return None
             
         # 3. Parse description for template structure
@@ -253,6 +268,39 @@ def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
         }
         
         return metadata
+        
+    except Exception as e:
+        logger.warning(f"Failed to parse text template content: {e}")
+        return None
+
+def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load metadata from manual text template fallback file (Server Side).
+    
+    Args:
+        ticket_id: Ticket ID to verify against or use
+        
+    Returns:
+        Dictionary of metadata or None if not found/empty
+    """
+    try:
+        # Priority 1: Check Repo Root (CWD)
+        target_file = None
+        if REPO_TEMPLATE_FILE.exists():
+            target_file = REPO_TEMPLATE_FILE
+            logger.info(f"Found text template in repo root: {REPO_TEMPLATE_FILE}")
+        # Priority 2: Check Internal Fallback (for dev/testing)
+        elif FALLBACK_TEMPLATE_FILE.exists():
+            target_file = FALLBACK_TEMPLATE_FILE
+            logger.info(f"Using internal text template fallback: {FALLBACK_TEMPLATE_FILE}")
+            
+        if not target_file:
+            return None
+            
+        content = target_file.read_text(encoding="utf-8")
+        logger.info(f"Checking text template fallback: {target_file}")
+        
+        return parse_text_template_content(content, ticket_id)
         
     except Exception as e:
         logger.warning(f"Failed to load from text template: {e}")
@@ -404,6 +452,46 @@ def create_fallback_file(ticket_id: str, metadata: Dict[str, Any]) -> None:
         # Write fallback data
         with open(FALLBACK_FILE, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
+        
+        # Write plain text template as well
+        try:
+            lines = []
+            lines.append(f"Jira_Ticket: {ticket_id}")
+            lines.append("\n")
+            lines.append("Paste Template below")
+            lines.append("-" * 100)
+            
+            lines.append(f"Name: {metadata.get('template_name', 'feature')}")
+            if metadata.get('feature'):
+                lines.append(f"Feature: {metadata.get('feature')}")
+            
+            # Handle description
+            desc = metadata.get('description', '')
+            if desc:
+                lines.append("Description: |")
+                for line in desc.splitlines():
+                    lines.append(f"  {line}")
+            
+            # Handle prompt_text
+            prompt = metadata.get('prompt_text', '')
+            if prompt:
+                lines.append("Prompt_Text: |")
+                for line in prompt.splitlines():
+                    lines.append(f"  {line}")
+
+            # Handle files
+            files = metadata.get('files_affected', [])
+            if files:
+                lines.append("Reference_Files:")
+                for f in files:
+                    lines.append(f"  - {f}")
+                    
+            text_content = "\n".join(lines)
+            FALLBACK_TEMPLATE_FILE.write_text(text_content, encoding="utf-8")
+            logger.info(f"Created text template fallback: {FALLBACK_TEMPLATE_FILE}")
+            
+        except Exception as text_error:
+            logger.warning(f"Failed to generate text template fallback: {text_error}")
         
         logger.info(
             "Created fallback file",
