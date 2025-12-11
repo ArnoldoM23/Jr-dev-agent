@@ -1,0 +1,11 @@
+{
+  "ticket_id": "E2E-CURRENT-1",
+  "pr_url": "",
+  "pess_score": 0.95,
+  "completion_timestamp": 1764890254.9372532,
+  "metadata": {
+    "session_id": "session_e2e_test",
+    "template_used": "feature",
+    "processing_time_ms": 6
+  }
+}

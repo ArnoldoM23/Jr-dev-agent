@@ -149,12 +149,16 @@ class PromptBuilder:
 - **Labels**: {labels_text}
 - **Components**: {components_text}
 {enrichment_section}
-## 🤖 Instructions for GitHub Copilot
+## 🤖 Instructions for GitHub Copilot/Cursor coding agent
 1. Review the ticket requirements above
-2. Implement the necessary changes in the specified files
-3. Follow best practices for code quality and testing
-4. Ensure all acceptance criteria are met
-5. Create or update tests as needed
+2. **Create a todo list**: Plan the implementation steps, including tests, PR creation, and session finalization.
+3. **Start implementing the changes immediately** (the user has already approved this task via the tool call).
+4. Implement the necessary changes in the specified files
+5. Follow best practices for code quality and testing
+6. Ensure all acceptance criteria are met
+7. Create or update tests as needed, run them, and ensure they pass
+8. Create a pull request with a clear title referencing the ticket ID
+9. Run the `finalize_session` tool to complete the session
 
 ## 🔧 Technical Guidelines
 - Use TypeScript for type safety
@@ -165,12 +169,14 @@ class PromptBuilder:
 
 ## 📋 Implementation Checklist
 - [ ] Understand the requirements thoroughly
-- [ ] Plan the implementation approach
+- [ ] Plan the implementation approach and write a todo list for the implementation.
 - [ ] Implement the core functionality
 - [ ] Add proper error handling
-- [ ] Write comprehensive tests
+- [ ] Write comprehensive tests and verify they pass
 - [ ] Update documentation if needed
 - [ ] Verify all acceptance criteria are met
+- [ ] After implementation, and test pass create a pull request with a clear title referencing the ticket ID and a summary of the changes made.
+- [ ] run the finalize_session tool to finalize the session.
 
 **Note**: This prompt was generated using the '{ticket_data.get('template_name', 'feature')}' template. Data source: {ticket_data.get('source', 'mcp')}.
 """
@@ -210,12 +216,16 @@ class PromptBuilder:
 ## 📁 Files to Investigate/Fix
 {files_text}
 
-## 🤖 Instructions for GitHub Copilot
+## 🤖 Instructions for GitHub Copilot/Cursor coding agent
 1. **Analyze the bug**: Understand the root cause of the issue
-2. **Identify the fix**: Determine the minimal change needed
-3. **Implement the solution**: Make targeted changes to fix the bug
-4. **Add regression tests**: Ensure the bug doesn't happen again
-5. **Verify the fix**: Test that the issue is resolved
+2. **Create a todo list**: Plan the fix, including reproduction, tests, PR, and finalization.
+3. **Identify the fix**: Determine the minimal change needed
+4. **Start implementing the changes immediately** (the user has already approved this task via the tool call).
+5. **Implement the solution**: Make targeted changes to fix the bug
+6. **Add regression tests**: Ensure the bug doesn't happen again
+7. **Verify the fix**: Test that the issue is resolved and all tests pass
+8. **Create Pull Request**: Create a PR with the fix
+9. **Finalize**: Run the `finalize_session` tool
 
 ## 🔧 Bug Fix Guidelines
 - Make minimal, targeted changes
@@ -270,13 +280,17 @@ class PromptBuilder:
 ## 📁 Files to Refactor
 {files_text}
 
-## 🤖 Instructions for GitHub Copilot
+## 🤖 Instructions for GitHub Copilot/Cursor coding agent
 1. **Analyze existing code**: Understand current implementation
-2. **Identify improvements**: Find areas for better structure/performance
-3. **Plan the refactoring**: Design the improved architecture
-4. **Implement incrementally**: Make step-by-step improvements
-5. **Maintain functionality**: Ensure behavior remains the same
-6. **Update tests**: Modify tests as needed for new structure
+2. **Create a todo list**: Plan the refactoring steps, tests, PR, and finalization.
+3. **Identify improvements**: Find areas for better structure/performance
+4. **Plan the refactoring**: Design the improved architecture
+5. **Start implementing the changes immediately** (the user has already approved this task via the tool call).
+6. **Implement incrementally**: Make step-by-step improvements
+7. **Maintain functionality**: Ensure behavior remains the same
+8. **Update tests**: Modify tests as needed for new structure, run them, and ensure they pass
+9. **Create Pull Request**: Create a PR with the changes
+10. **Finalize**: Run the `finalize_session` tool
 
 ## 🔧 Refactoring Guidelines
 - Maintain existing functionality

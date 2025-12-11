@@ -49,6 +49,10 @@ MCP_TOOLS = {
                     "type": "string",
                     "description": "Branch name (optional)"
                 },
+                "project_root": {
+                    "type": "string",
+                    "description": "Path to the project root directory (for memory storage)"
+                },
                 "fallback_template_content": {
                     "type": "string",
                     "description": "Content of local fallback template file (e.g. jira_ticket_template.txt) if present on client. The agent should read the file and pass its content here."
@@ -342,6 +346,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
                     ticket_id=arguments.get("ticket_id"),
                     repo=arguments.get("repo"),
                     branch=arguments.get("branch"),
+                    project_root=arguments.get("project_root"),
                     fallback_template_content=arguments.get("fallback_template_content")
                 )
                 

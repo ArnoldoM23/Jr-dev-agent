@@ -55,6 +55,14 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
             if isinstance(data, dict):
                 # Normalize keys to lowercase to handle "Name:" vs "name:"
                 data = {k.lower(): v for k, v in data.items()}
+                
+                # Map aliases to "feature"
+                if "feature" not in data:
+                    if "type" in data:
+                        data["feature"] = data["type"]
+                    elif "feature_name" in data:
+                        data["feature"] = data["feature_name"]
+                    
                 logger.info("Successfully extracted template from description", 
                             template_name=data.get('name'))
                 return data
@@ -82,10 +90,16 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
         if prompt_match:
             extracted["prompt_text"] = prompt_match.group(1).strip()
             
-        # Extract feature if present
-        feature_match = re.search(r"^feature:\s*(.+)$", description, re.MULTILINE | re.IGNORECASE)
+        # Extract feature if present (Priority: Feature/feature_Name > Type)
+        # First check for explicit feature keys
+        feature_match = re.search(r"^(?:feature|feature_name):\s*(.+)$", description, re.MULTILINE | re.IGNORECASE)
         if feature_match:
             extracted["feature"] = feature_match.group(1).strip()
+        else:
+            # Fallback to Type if no explicit feature key
+            type_match = re.search(r"^type:\s*(.+)$", description, re.MULTILINE | re.IGNORECASE)
+            if type_match:
+                extracted["feature"] = type_match.group(1).strip()
 
         if extracted.get("name") or extracted.get("prompt_text"):
              logger.info("Successfully extracted template via regex fallback", 
@@ -93,4 +107,3 @@ def extract_template_from_description(description: str) -> Optional[Dict[str, An
              return extracted
 
     return None
-

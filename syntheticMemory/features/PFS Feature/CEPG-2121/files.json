@@ -1,0 +1,15 @@
+{
+  "files": [
+    {
+      "name": "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/update-shipping-strategy.graphql",
+      "size": null,
+      "hash": null
+    },
+    {
+      "name": "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/fulfillment-group/shipping-strategies.graphql",
+      "size": null,
+      "hash": null
+    }
+  ],
+  "created_at": 1765410421.439724
+}

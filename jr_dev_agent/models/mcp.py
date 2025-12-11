@@ -150,6 +150,7 @@ class PrepareAgentTaskArgs(BaseModel):
     repository: Optional[str] = Field(None, description="Fully-qualified repo (e.g., org/repo) if available")
     ide: Optional[str] = Field(None, description="Client IDE hint (e.g., vscode, cursor, windsurf)")
     user: Optional[str] = Field(None, description="User identifier/email for telemetry")
+    project_root: Optional[str] = Field(None, description="Path to the project root directory (for memory storage)")
     fallback_template_content: Optional[str] = Field(None, description="Content of local fallback template file (e.g. jira_ticket_template.txt) if present on client")
 
     class Config:

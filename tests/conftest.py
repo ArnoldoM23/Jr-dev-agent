@@ -3,6 +3,7 @@ Shared pytest configuration and fixtures for Jr Dev Agent tests.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import aiohttp
 import time
@@ -33,9 +34,9 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture
 async def aiohttp_session():
-    """Create an aiohttp session for the test session."""
+    """Create an aiohttp session for each test."""
     async with aiohttp.ClientSession() as session:
         yield session
 
@@ -219,7 +220,7 @@ def service_client_factory(aiohttp_session):
 def wait_for_service(service_url: str, timeout: int = 30) -> bool:
     """Wait for a service to be healthy."""
     import requests
-    
+
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
@@ -233,18 +234,42 @@ def wait_for_service(service_url: str, timeout: int = 30) -> bool:
     return False
 
 
+def check_service_available(service_url: str) -> bool:
+    """Check if a service is available without waiting."""
+    import requests
+    try:
+        response = requests.get(f"{service_url}/health", timeout=1)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def check_any_service_available() -> bool:
+    """Check if any service is available."""
+    return any(check_service_available(url) for url in SERVICE_URLS.values())
+
+
+# Skip condition for tests requiring services
+skip_if_no_services = pytest.mark.skipif(
+    not check_any_service_available(),
+    reason="Test requires running services which are not available"
+)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
     """Set up the test environment before running tests."""
     logger.info("Setting up test environment...")
     
-    # Wait for critical services to be healthy
+    # Check for critical services availability (optional, don't wait)
     critical_services = ["mcp_server", "promptbuilder", "template_intelligence", "session_management"]
     
     for service_name in critical_services:
         service_url = SERVICE_URLS[service_name]
-        if not wait_for_service(service_url):
-            logger.warning(f"Service {service_name} is not healthy, tests may fail")
+        if check_service_available(service_url):
+            logger.info(f"Service {service_name} is healthy")
+        else:
+            logger.warning(f"Service {service_name} is not available, related tests will be skipped")
     
     yield
     

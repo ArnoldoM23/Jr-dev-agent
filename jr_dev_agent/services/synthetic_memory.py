@@ -45,7 +45,12 @@ class SyntheticMemory:
                 memory_config = config.get("memory", {})
                 self.backend = memory_config.get("backend", "fs")
                 if self.backend == "fs":
-                    self.root = memory_config.get("fs", {}).get("root_dir", "syntheticMemory")
+                    # Only override root if it wasn't explicitly set in __init__ (default is "syntheticMemory")
+                    # or if we want config to take precedence over default but not over explicit override.
+                    # Simpler check: if self.root is still the default, use config.
+                    config_root = memory_config.get("fs", {}).get("root_dir")
+                    if config_root and self.root == "syntheticMemory":
+                        self.root = config_root
         except FileNotFoundError:
             pass  # Use defaults
             

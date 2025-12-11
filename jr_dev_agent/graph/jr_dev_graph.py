@@ -9,6 +9,7 @@ import hashlib
 import logging
 import time
 import re
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import asyncio
@@ -37,6 +38,7 @@ class JrDevState(TypedDict):
     
     # Ticket data
     ticket_data: Dict[str, Any]
+    project_root: Optional[str]  # Path to user's project root for memory
     
     # Processing state
     current_step: str
@@ -120,13 +122,14 @@ class JrDevGraph:
         
         return workflow.compile()
     
-    async def process_ticket(self, ticket_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+    async def process_ticket(self, ticket_data: Dict[str, Any], session_id: str, project_root: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a ticket through the LangGraph workflow
         
         Args:
             ticket_data: Raw ticket data
             session_id: Session identifier
+            project_root: Optional path to user's project root for memory
             
         Returns:
             Dictionary with processing results
@@ -138,7 +141,7 @@ class JrDevGraph:
             await self.pess_client.record_session_start(
                 ticket_data['ticket_id'], 
                 session_id, 
-                {"source": "langgraph_workflow"}
+                {"source": "langgraph_workflow", "project_root": project_root}
             )
             
             # Initialize state
@@ -146,6 +149,7 @@ class JrDevGraph:
                 ticket_id=ticket_data['ticket_id'],
                 session_id=session_id,
                 ticket_data=ticket_data,
+                project_root=project_root,
                 current_step="initialize",
                 steps_completed=[],
                 prompt="",
@@ -257,8 +261,23 @@ class JrDevGraph:
         try:
             self.logger.info(f"Enriching context for {state['ticket_id']}")
             
+            # Determine which memory service to use
+            if state.get('project_root'):
+                memory_root = os.path.join(state['project_root'], "syntheticMemory")
+                self.logger.info(f"Using project-specific memory root: {memory_root}")
+                
+                # Create temp instance for this request
+                memory_service = SyntheticMemory(root=memory_root, backend="fs")
+                # Initialize strictly to avoid config.json override if present in CWD
+                # We manually set initialized=True after ensuring dir exists, 
+                # or we trust our previous fix in SyntheticMemory.initialize() which respects explicit root.
+                await memory_service.initialize()
+            else:
+                self.logger.info("Using default agent memory root")
+                memory_service = self.synthetic_memory
+            
             # Use Synthetic Memory v2 to enrich context
-            enrichment_data = await self.synthetic_memory.enrich_context(state['ticket_data'])
+            enrichment_data = await memory_service.enrich_context(state['ticket_data'])
             
             state['metadata']['enrichment'] = enrichment_data or {}
             state['current_step'] = "enrich_context" 
@@ -456,7 +475,15 @@ class JrDevGraph:
             
             # Record completion in synthetic memory
             try:
-                await self.synthetic_memory.record_completion(
+                # Determine which memory service to use
+                if state.get('project_root'):
+                    memory_root = os.path.join(state['project_root'], "syntheticMemory")
+                    memory_service = SyntheticMemory(root=memory_root, backend="fs")
+                    await memory_service.initialize()
+                else:
+                    memory_service = self.synthetic_memory
+
+                await memory_service.record_completion(
                     ticket_id=state['ticket_id'],
                     pr_url="",  # Will be provided later via finalize_session
                     pess_score=state['metadata']['pess_score'].get('prompt_score', 0.5),
