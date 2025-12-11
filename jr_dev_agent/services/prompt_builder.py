@@ -37,8 +37,13 @@ class PromptBuilder:
             from langchain_core.messages import HumanMessage
             
             if not os.getenv("OPENAI_API_KEY"):
-                # Fallback if no API key
-                return f"Implement {ticket_data.get('summary')} ({ticket_data.get('ticket_id')})"
+                # Fallback if no API key - use summary and first 200 chars of description
+                summary = ticket_data.get('summary', '')
+                description = ticket_data.get('description', '')
+                desc_snippet = description[:200].replace('\n', ' ').strip()
+                if len(description) > 200:
+                    desc_snippet += "..."
+                return f"{summary}: {desc_snippet}"
 
             llm = ChatOpenAI(temperature=0, model="gpt-4o-mini") # Use a cheap/fast model
             
@@ -56,7 +61,13 @@ class PromptBuilder:
             return response.content.strip()
         except Exception as e:
             self.logger.warning(f"Failed to generate task summary with LLM: {e}")
-            return f"Implement {ticket_data.get('summary')}"
+            # Fallback on error
+            summary = ticket_data.get('summary', '')
+            description = ticket_data.get('description', '')
+            desc_snippet = description[:200].replace('\n', ' ').strip()
+            if len(description) > 200:
+                desc_snippet += "..."
+            return f"{summary}: {desc_snippet}"
     
     async def generate_prompt(self, template_name: str, ticket_data: Dict[str, Any], 
                             enrichment_data: Dict[str, Any] = None) -> str:

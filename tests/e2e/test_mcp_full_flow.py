@@ -137,3 +137,107 @@ async def test_api_e2e_flow():
         jr_dev_graph.synthetic_memory.root = original_root
         if mem_root.exists():
             shutil.rmtree(mem_root)
+
+@pytest.mark.asyncio
+async def test_api_fallback_scenarios():
+    """Test fallback logic for summary generation and memory persistence"""
+    
+    # Setup temp memory
+    mem_root = Path("temp_fallback_memory")
+    if mem_root.exists():
+        shutil.rmtree(mem_root)
+    mem_root.mkdir()
+    
+    # Override memory root
+    original_root = jr_dev_graph.synthetic_memory.root
+    jr_dev_graph.synthetic_memory.root = str(mem_root)
+    
+    try:
+        # Ensure OPENAI_API_KEY is NOT set to trigger fallback
+        with patch.dict(os.environ, {}, clear=True):
+            # We might need to keep some env vars if any libraries depend on them (e.g. PATH),
+            # but usually clear=True removes everything. 
+            # Safer to just remove OPENAI_API_KEY if it exists.
+            pass
+        
+        # Explicitly patch os.getenv to return None for OPENAI_API_KEY
+        # because the server might have loaded it already or cached it?
+        # PromptBuilder checks os.getenv inside generate_task_summary.
+        
+        with patch("os.getenv", side_effect=lambda k, d=None: None if k == "OPENAI_API_KEY" else os.environ.get(k, d)):
+            
+            with TestClient(app) as client:
+                ticket_id = "FALLBACK-123"
+                session_id = "session_fallback_123"
+                
+                # 1. Prepare Agent Task (expect fallback summary)
+                prepare_payload = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "id": "1",
+                    "params": {
+                        "name": "prepare_agent_task",
+                        "arguments": {"ticket_id": ticket_id}
+                    }
+                }
+                
+                description = "This is a detailed description of the task." + (" long text" * 20)
+                
+                with patch("jr_dev_agent.utils.load_ticket_metadata.load_ticket_metadata") as mock_load:
+                    mock_load.return_value = {
+                        "ticket_id": ticket_id,
+                        "summary": "Fallback Test",
+                        "description": description,
+                        "files_affected": ["api.py"],
+                        "acceptance_criteria": ["It works"],
+                        "template_name": "feature"
+                    }
+                    
+                    response = client.post("/mcp/tools/call", json=prepare_payload)
+                    assert response.status_code == 200
+                
+                # 2. Finalize Session (changes_made=None, but provide feedback)
+                feedback_text = "This is the summary of changes from feedback."
+                
+                finalize_payload = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "id": "2",
+                    "params": {
+                        "name": "finalize_session",
+                        "arguments": {
+                            "session_id": session_id,
+                            "ticket_id": ticket_id,
+                            "pr_url": "",
+                            "files_modified": [],
+                            "duration_ms": 100,
+                            "feedback": feedback_text
+                            # changes_made is intentionally omitted/None
+                        }
+                    }
+                }
+                
+                response = client.post("/mcp/tools/call", json=finalize_payload)
+                assert response.status_code == 200
+                
+                # 3. Verify Fallback Results
+                found_dirs = list(mem_root.glob(f"**/{ticket_id}"))
+                assert len(found_dirs) > 0
+                ticket_dir = found_dirs[0]
+                
+                summary_file = ticket_dir / "summary.json"
+                with open(summary_file, 'r') as f:
+                    summary_data = json.load(f)
+                
+                # Verify Change Required Fallback
+                # Should be "Summary: DescriptionSnippet..."
+                expected_start = "Fallback Test: This is a detailed description"
+                assert summary_data.get("change_required").startswith(expected_start)
+                
+                # Verify Changes Made Fallback (from feedback)
+                assert summary_data.get("changes_made") == feedback_text
+
+    finally:
+        jr_dev_graph.synthetic_memory.root = original_root
+        if mem_root.exists():
+            shutil.rmtree(mem_root)

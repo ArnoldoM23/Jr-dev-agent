@@ -84,6 +84,12 @@ async def handle_finalize_session(
 
     # Update synthetic memory with final completion data
     if jr_dev_graph and hasattr(jr_dev_graph, "synthetic_memory"):
+        # Fallback: if changes_made is not provided, use feedback if it looks like a summary
+        changes_summary = args.changes_made
+        if not changes_summary and args.feedback:
+            logger.info("Using feedback as fallback for changes_made summary")
+            changes_summary = args.feedback
+
         try:
             await jr_dev_graph.synthetic_memory.record_completion(
                 ticket_id=args.ticket_id,
@@ -98,7 +104,7 @@ async def handle_finalize_session(
                     "feedback": args.feedback,
                     "agent_telemetry": args.agent_telemetry,
                 },
-                changes_made=args.changes_made
+                changes_made=changes_summary
             )
         except Exception as e:
             logger.warning(f"Failed to persist synthetic memory completion: {str(e)}")

@@ -85,6 +85,7 @@ def main(ticket_id: str, session_id: str, project_root: str = None) -> None:
                 "files_modified": metadata.get("files_to_modify", []),
                 "duration_ms": 5 * 60 * 1000,
                 "feedback": "Demo run completed successfully",
+                "changes_made": "Updated the code to implement the requested feature (Demo).",
                 "agent_telemetry": {"retries": 0},
             },
         },
