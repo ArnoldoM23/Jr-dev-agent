@@ -47,7 +47,8 @@ async def handle_prepare_agent_task(
         # Process ticket through existing LangGraph workflow
         workflow_result = await jr_dev_graph.process_ticket(
             ticket_data=full_ticket_data,
-            session_id=session_id
+            session_id=session_id,
+            project_root=args.project_root
         )
         
         # Validate workflow result
@@ -201,4 +202,3 @@ def extract_commands_from_prompt(prompt: str) -> List[str]:
         commands.append('npm run generate')
     
     return list(set(commands))  # Remove duplicates
-

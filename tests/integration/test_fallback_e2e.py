@@ -33,6 +33,8 @@ Labels:
   - e2e
 """
 
+import pytest
+@pytest.mark.asyncio
 async def test_fallback_e2e_flow():
     logger.info("🚀 Starting E2E Manual Fallback Integration Test")
     
@@ -106,4 +108,3 @@ if __name__ == "__main__":
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
         sys.exit(1)
-

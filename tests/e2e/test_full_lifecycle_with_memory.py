@@ -16,7 +16,9 @@ logger = logging.getLogger("e2e_full_lifecycle")
 
 from jr_dev_agent.graph.jr_dev_graph import JrDevGraph
 from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata, FALLBACK_TEMPLATE_FILE, REPO_TEMPLATE_FILE
+import pytest
 
+@pytest.mark.asyncio
 async def test_full_lifecycle_with_memory():
     logger.info("🚀 Starting Full Lifecycle E2E Test (with dirty memory)")
     

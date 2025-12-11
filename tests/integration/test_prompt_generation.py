@@ -12,7 +12,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("integration_test")
 
 from jr_dev_agent.services.prompt_builder import PromptBuilder
+import pytest
 
+@pytest.mark.asyncio
 async def test_prompt_generation_robustness():
     logger.info("🧪 Starting PromptBuilder robustness integration test...")
     
@@ -80,4 +82,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n💥 CRITICAL ERROR: {e}")
         sys.exit(1)
-

@@ -15,7 +15,9 @@ logger = logging.getLogger("test_memory_crash")
 
 from jr_dev_agent.services.synthetic_memory import SyntheticMemory
 from jr_dev_agent.services.prompt_composer import PromptComposer
+import pytest
 
+@pytest.mark.asyncio
 async def test_memory_crash():
     logger.info("🧪 Starting Memory Enrichment Crash Reproduction Test")
     
@@ -106,4 +108,3 @@ async def test_memory_crash():
 
 if __name__ == "__main__":
     asyncio.run(test_memory_crash())
-
