@@ -30,45 +30,6 @@ class PromptBuilder:
         self.initialized = True
         self.logger.info("PromptBuilder initialized successfully")
 
-    async def generate_task_summary(self, ticket_data: Dict[str, Any]) -> str:
-        """Generate a concise summary of required changes using LLM"""
-        try:
-            from langchain_openai import ChatOpenAI
-            from langchain_core.messages import HumanMessage
-            
-            if not os.getenv("OPENAI_API_KEY"):
-                # Fallback if no API key - use summary and first 200 chars of description
-                summary = ticket_data.get('summary', '')
-                description = ticket_data.get('description', '')
-                desc_snippet = description[:200].replace('\n', ' ').strip()
-                if len(description) > 200:
-                    desc_snippet += "..."
-                return f"{summary}: {desc_snippet}"
-
-            llm = ChatOpenAI(temperature=0, model="gpt-4o-mini") # Use a cheap/fast model
-            
-            prompt = f"""
-            Summarize the technical changes required for this Jira ticket in 1-2 sentences.
-            Focus on what code needs to be modified or added.
-            
-            Summary: {ticket_data.get('summary')}
-            Description: {ticket_data.get('description')}
-            Files affected: {ticket_data.get('files_affected')}
-            Acceptance Criteria: {ticket_data.get('acceptance_criteria')}
-            """
-            
-            response = await llm.ainvoke([HumanMessage(content=prompt)])
-            return response.content.strip()
-        except Exception as e:
-            self.logger.warning(f"Failed to generate task summary with LLM: {e}")
-            # Fallback on error
-            summary = ticket_data.get('summary', '')
-            description = ticket_data.get('description', '')
-            desc_snippet = description[:200].replace('\n', ' ').strip()
-            if len(description) > 200:
-                desc_snippet += "..."
-            return f"{summary}: {desc_snippet}"
-    
     async def generate_prompt(self, template_name: str, ticket_data: Dict[str, Any], 
                             enrichment_data: Dict[str, Any] = None) -> str:
         """
@@ -198,7 +159,10 @@ class PromptBuilder:
 6. Ensure all acceptance criteria are met
 7. Create or update tests as needed, run them, and ensure they pass
 8. Create a pull request with a clear title referencing the ticket ID
-9. Run the `finalize_session` tool to complete the session
+9. **Generate session summaries** for future context:
+   - `change_required`: A 1-2 sentence summary of what changes were originally required (read the ticket above)
+   - `changes_made`: A 1-2 sentence summary of what you actually implemented
+10. Run the `finalize_session` tool with both summaries to complete the session
 
 ## 🔧 Technical Guidelines
 - Use TypeScript for type safety
@@ -216,7 +180,9 @@ class PromptBuilder:
 - [ ] Update documentation if needed
 - [ ] Verify all acceptance criteria are met
 - [ ] After implementation, and test pass create a pull request with a clear title referencing the ticket ID and a summary of the changes made.
-- [ ] run the finalize_session tool to finalize the session.
+- [ ] Generate `change_required` summary: what changes were needed (1-2 sentences from the ticket)
+- [ ] Generate `changes_made` summary: what was actually implemented (1-2 sentences)
+- [ ] Run the finalize_session tool with both summaries to finalize the session.
 
 **Note**: This prompt was generated using the '{ticket_data.get('template_name', 'feature')}' template. Data source: {ticket_data.get('source', 'mcp')}.
 """
@@ -265,7 +231,10 @@ class PromptBuilder:
 6. **Add regression tests**: Ensure the bug doesn't happen again
 7. **Verify the fix**: Test that the issue is resolved and all tests pass
 8. **Create Pull Request**: Create a PR with the fix
-9. **Finalize**: Run the `finalize_session` tool
+9. **Generate session summaries**:
+   - `change_required`: 1-2 sentence summary of what bug needed fixing
+   - `changes_made`: 1-2 sentence summary of the fix implemented
+10. **Finalize**: Run the `finalize_session` tool with both summaries
 
 ## 🔧 Bug Fix Guidelines
 - Make minimal, targeted changes
@@ -330,7 +299,10 @@ class PromptBuilder:
 7. **Maintain functionality**: Ensure behavior remains the same
 8. **Update tests**: Modify tests as needed for new structure, run them, and ensure they pass
 9. **Create Pull Request**: Create a PR with the changes
-10. **Finalize**: Run the `finalize_session` tool
+10. **Generate session summaries**:
+    - `change_required`: 1-2 sentence summary of what needed refactoring
+    - `changes_made`: 1-2 sentence summary of the refactoring done
+11. **Finalize**: Run the `finalize_session` tool with both summaries
 
 ## 🔧 Refactoring Guidelines
 - Maintain existing functionality

@@ -23,23 +23,8 @@ async def test_api_e2e_flow():
     jr_dev_graph.synthetic_memory.root = str(mem_root)
     
     try:
-        # Mock ChatOpenAI
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}), \
-             patch("langchain_openai.ChatOpenAI") as MockChatOpenAI:
-            
-            # Setup mock LLM response
-            mock_llm = MagicMock()
-            mock_response = MagicMock()
-            mock_response.content = "Implement E2E API test changes."
-            
-            async def async_response(*args, **kwargs):
-                return mock_response
-            
-            mock_llm.ainvoke.side_effect = async_response
-            MockChatOpenAI.return_value = mock_llm
-            
-            # Use TestClient as context manager to trigger startup/shutdown
-            with TestClient(app) as client:
+        # Use TestClient as context manager to trigger startup/shutdown
+        with TestClient(app) as client:
                 
                 ticket_id = "CEPG-12345"
                 session_id = "session_cepg_12345"
@@ -81,8 +66,9 @@ async def test_api_e2e_flow():
                     assert len(result["content"]) > 0
                     assert "prompt_text" in result["_meta"]
                     
-                # 2. Finalize Session
-                changes_made = "Implemented API test case."
+                # 2. Finalize Session (agent provides both summaries)
+                change_required = "Add E2E API testing capability."
+                changes_made = "Implemented API test case with mocked responses."
                 pr_url = "https://github.com/test/pr/1"
                 
                 finalize_payload = {
@@ -97,6 +83,7 @@ async def test_api_e2e_flow():
                             "pr_url": pr_url,
                             "files_modified": ["api.py"],
                             "duration_ms": 500,
+                            "change_required": change_required,
                             "changes_made": changes_made
                         }
                     }
@@ -119,7 +106,7 @@ async def test_api_e2e_flow():
                 with open(summary_file, 'r') as f:
                     summary_data = json.load(f)
                 
-                assert summary_data.get("change_required") == "Implement E2E API test changes."
+                assert summary_data.get("change_required") == change_required
                 assert summary_data.get("changes_made") == changes_made
                 assert summary_data.get("pr_url") == pr_url
                 
@@ -140,7 +127,7 @@ async def test_api_e2e_flow():
 
 @pytest.mark.asyncio
 async def test_api_fallback_scenarios():
-    """Test fallback logic for summary generation and memory persistence"""
+    """Test fallback logic when summaries are not provided"""
     
     # Setup temp memory
     mem_root = Path("temp_fallback_memory")
@@ -153,89 +140,70 @@ async def test_api_fallback_scenarios():
     jr_dev_graph.synthetic_memory.root = str(mem_root)
     
     try:
-        # Ensure OPENAI_API_KEY is NOT set to trigger fallback
-        with patch.dict(os.environ, {}, clear=True):
-            # We might need to keep some env vars if any libraries depend on them (e.g. PATH),
-            # but usually clear=True removes everything. 
-            # Safer to just remove OPENAI_API_KEY if it exists.
-            pass
-        
-        # Explicitly patch os.getenv to return None for OPENAI_API_KEY
-        # because the server might have loaded it already or cached it?
-        # PromptBuilder checks os.getenv inside generate_task_summary.
-        
-        with patch("os.getenv", side_effect=lambda k, d=None: None if k == "OPENAI_API_KEY" else os.environ.get(k, d)):
+        with TestClient(app) as client:
+            ticket_id = "FALLBACK-123"
+            session_id = "session_fallback_123"
             
-            with TestClient(app) as client:
-                ticket_id = "FALLBACK-123"
-                session_id = "session_fallback_123"
-                
-                # 1. Prepare Agent Task (expect fallback summary)
-                prepare_payload = {
-                    "jsonrpc": "2.0",
-                    "method": "tools/call",
-                    "id": "1",
-                    "params": {
-                        "name": "prepare_agent_task",
-                        "arguments": {"ticket_id": ticket_id}
-                    }
+            # 1. Prepare Agent Task
+            prepare_payload = {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "id": "1",
+                "params": {
+                    "name": "prepare_agent_task",
+                    "arguments": {"ticket_id": ticket_id}
+                }
+            }
+            
+            with patch("jr_dev_agent.utils.load_ticket_metadata.load_ticket_metadata") as mock_load:
+                mock_load.return_value = {
+                    "ticket_id": ticket_id,
+                    "summary": "Fallback Test",
+                    "description": "Testing fallback scenarios",
+                    "files_affected": ["api.py"],
+                    "acceptance_criteria": ["It works"],
+                    "template_name": "feature"
                 }
                 
-                description = "This is a detailed description of the task." + (" long text" * 20)
-                
-                with patch("jr_dev_agent.utils.load_ticket_metadata.load_ticket_metadata") as mock_load:
-                    mock_load.return_value = {
-                        "ticket_id": ticket_id,
-                        "summary": "Fallback Test",
-                        "description": description,
-                        "files_affected": ["api.py"],
-                        "acceptance_criteria": ["It works"],
-                        "template_name": "feature"
-                    }
-                    
-                    response = client.post("/mcp/tools/call", json=prepare_payload)
-                    assert response.status_code == 200
-                
-                # 2. Finalize Session (changes_made=None, but provide feedback)
-                feedback_text = "This is the summary of changes from feedback."
-                
-                finalize_payload = {
-                    "jsonrpc": "2.0",
-                    "method": "tools/call",
-                    "id": "2",
-                    "params": {
-                        "name": "finalize_session",
-                        "arguments": {
-                            "session_id": session_id,
-                            "ticket_id": ticket_id,
-                            "pr_url": "",
-                            "files_modified": [],
-                            "duration_ms": 100,
-                            "feedback": feedback_text
-                            # changes_made is intentionally omitted/None
-                        }
-                    }
-                }
-                
-                response = client.post("/mcp/tools/call", json=finalize_payload)
+                response = client.post("/mcp/tools/call", json=prepare_payload)
                 assert response.status_code == 200
-                
-                # 3. Verify Fallback Results
-                found_dirs = list(mem_root.glob(f"**/{ticket_id}"))
-                assert len(found_dirs) > 0
-                ticket_dir = found_dirs[0]
-                
-                summary_file = ticket_dir / "summary.json"
-                with open(summary_file, 'r') as f:
-                    summary_data = json.load(f)
-                
-                # Verify Change Required Fallback
-                # Should be "Summary: DescriptionSnippet..."
-                expected_start = "Fallback Test: This is a detailed description"
-                assert summary_data.get("change_required").startswith(expected_start)
-                
-                # Verify Changes Made Fallback (from feedback)
-                assert summary_data.get("changes_made") == feedback_text
+            
+            # 2. Finalize Session with NO change_required, NO changes_made, but feedback
+            feedback_text = "Implemented fallback handling successfully."
+            
+            finalize_payload = {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "id": "2",
+                "params": {
+                    "name": "finalize_session",
+                    "arguments": {
+                        "session_id": session_id,
+                        "ticket_id": ticket_id,
+                        "pr_url": "https://github.com/test/pr/fallback",
+                        "files_modified": ["api.py"],
+                        "duration_ms": 100,
+                        "feedback": feedback_text
+                        # Both change_required and changes_made intentionally omitted
+                    }
+                }
+            }
+            
+            response = client.post("/mcp/tools/call", json=finalize_payload)
+            assert response.status_code == 200
+            
+            # 3. Verify Fallback: changes_made should use feedback
+            found_dirs = list(mem_root.glob(f"**/{ticket_id}"))
+            assert len(found_dirs) > 0
+            ticket_dir = found_dirs[0]
+            
+            summary_file = ticket_dir / "summary.json"
+            with open(summary_file, 'r') as f:
+                summary_data = json.load(f)
+            
+            # change_required might not be set (agent didn't provide it)
+            # changes_made should fallback to feedback
+            assert summary_data.get("changes_made") == feedback_text
 
     finally:
         jr_dev_graph.synthetic_memory.root = original_root

@@ -104,6 +104,7 @@ async def handle_finalize_session(
                     "feedback": args.feedback,
                     "agent_telemetry": args.agent_telemetry,
                 },
+                change_required=args.change_required,
                 changes_made=changes_summary
             )
         except Exception as e:
