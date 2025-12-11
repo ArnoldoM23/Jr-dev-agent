@@ -98,6 +98,7 @@ async def handle_finalize_session(
                     "feedback": args.feedback,
                     "agent_telemetry": args.agent_telemetry,
                 },
+                changes_made=args.changes_made
             )
         except Exception as e:
             logger.warning(f"Failed to persist synthetic memory completion: {str(e)}")

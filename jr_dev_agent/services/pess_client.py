@@ -246,7 +246,8 @@ class PESSClient:
         file_penalty = min(0.15, files_count * 0.02)
         
         # Retry penalty (more retries = initial prompt wasn't clear enough)
-        retry_penalty = min(0.25, (retry_count - 1) * 0.12)
+        effective_retries = max(0, retry_count - 1)
+        retry_penalty = min(0.25, effective_retries * 0.12)
         
         # Processing time bonus/penalty (very fast might indicate simple ticket)
         if processing_time > 0:
@@ -260,7 +261,7 @@ class PESSClient:
             time_adjustment = 0
         
         # Calculate final score
-        final_score = max(0.1, base_score - file_penalty - retry_penalty + time_adjustment)
+        final_score = max(0.1, min(1.0, base_score - file_penalty - retry_penalty + time_adjustment))
         
         # Determine clarity rating
         if final_score >= 0.85:

@@ -246,6 +246,7 @@ class FinalizeSessionArgs(BaseModel):
     manual_edits: int = Field(default=0, ge=0, description="Number of manual edits")
     duration_ms: int = Field(default=0, ge=0, description="Session duration in milliseconds")
     feedback: Optional[str] = Field(None, description="Developer feedback or qualitative notes about the run")
+    changes_made: Optional[str] = Field(None, description="Summary of changes made by the agent")
     agent_telemetry: Dict[str, Any] = Field(default_factory=dict, description="Raw telemetry emitted by the coding agent")
 
     class Config:
@@ -263,6 +264,7 @@ class FinalizeSessionArgs(BaseModel):
                 "manual_edits": 0,
                 "duration_ms": 245000,
                 "feedback": "Prompt was clear; agent needed one retry for schema update",
+                "changes_made": "Added pickup_store_id to OrderInput and updated resolvers to handle store pickup logic.",
                 "agent_telemetry": {"retries": 1, "commands": ["npm run generate", "npm test"]}
             }
         }

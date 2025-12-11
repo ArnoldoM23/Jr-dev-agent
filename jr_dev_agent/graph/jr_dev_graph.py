@@ -396,6 +396,13 @@ class JrDevGraph:
             else:
                 state['metadata']['commands'] = []
             
+            # Generate task summary (change_required)
+            try:
+                change_required = await self.prompt_builder.generate_task_summary(state['ticket_data'])
+                state['metadata']['change_required'] = change_required
+            except Exception as e:
+                self.logger.warning(f"Failed to generate task summary: {str(e)}")
+
             # Compose final prompt with Memory Context and Read-before-edit sections
             if memory_envelope and memory_envelope.get('feature_id') != 'unknown':
                 enhanced_prompt = self.prompt_composer.compose_final_prompt(
@@ -491,7 +498,9 @@ class JrDevGraph:
                         "session_id": state['session_id'],
                         "template_used": state['template_used'],
                         "processing_time_ms": processing_time_ms
-                    }
+                    },
+                    change_required=state['metadata'].get('change_required'),
+                    full_prompt=state.get('prompt')
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to record completion in synthetic memory: {str(e)}")

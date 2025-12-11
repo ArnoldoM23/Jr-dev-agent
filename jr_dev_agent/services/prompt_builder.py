@@ -7,6 +7,7 @@ template engine.
 """
 
 import logging
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -28,6 +29,34 @@ class PromptBuilder:
         self.logger.info("Initializing PromptBuilder...")
         self.initialized = True
         self.logger.info("PromptBuilder initialized successfully")
+
+    async def generate_task_summary(self, ticket_data: Dict[str, Any]) -> str:
+        """Generate a concise summary of required changes using LLM"""
+        try:
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import HumanMessage
+            
+            if not os.getenv("OPENAI_API_KEY"):
+                # Fallback if no API key
+                return f"Implement {ticket_data.get('summary')} ({ticket_data.get('ticket_id')})"
+
+            llm = ChatOpenAI(temperature=0, model="gpt-4o-mini") # Use a cheap/fast model
+            
+            prompt = f"""
+            Summarize the technical changes required for this Jira ticket in 1-2 sentences.
+            Focus on what code needs to be modified or added.
+            
+            Summary: {ticket_data.get('summary')}
+            Description: {ticket_data.get('description')}
+            Files affected: {ticket_data.get('files_affected')}
+            Acceptance Criteria: {ticket_data.get('acceptance_criteria')}
+            """
+            
+            response = await llm.ainvoke([HumanMessage(content=prompt)])
+            return response.content.strip()
+        except Exception as e:
+            self.logger.warning(f"Failed to generate task summary with LLM: {e}")
+            return f"Implement {ticket_data.get('summary')}"
     
     async def generate_prompt(self, template_name: str, ticket_data: Dict[str, Any], 
                             enrichment_data: Dict[str, Any] = None) -> str:
