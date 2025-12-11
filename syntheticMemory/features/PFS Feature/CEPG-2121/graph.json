@@ -1,0 +1,11 @@
+{
+  "related_nodes": {
+    "update-shipping-strategy.graphql": [],
+    "shipping-strategies.graphql": []
+  },
+  "connected_features": [
+    "graphql_schema",
+    "shipping"
+  ],
+  "complexity_score": 0.65
+}
