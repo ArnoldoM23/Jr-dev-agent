@@ -21,14 +21,13 @@ async def handle_prepare_agent_task(
     logger.info(f"Processing prepare_agent_task for ticket: {args.ticket_id}")
     
     # Create new session for this MCP request
-    session_id = f"mcp_{args.ticket_id}_{uuid.uuid4().hex[:8]}"
-    
-    session_manager.create_session(
+    session_id = session_manager.create_session(
         ticket_id=args.ticket_id,
         metadata={
             "source": "mcp_gateway",
             "repo": args.repo,
             "branch": args.branch,
+            "project_root": args.project_root,
             "mcp_session": True
         }
     )
