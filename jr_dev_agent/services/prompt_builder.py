@@ -159,10 +159,14 @@ class PromptBuilder:
 6. Ensure all acceptance criteria are met
 7. Create or update tests as needed, run them, and ensure they pass
 8. Create a pull request with a clear title referencing the ticket ID
+<<<<<<< HEAD
 9. **Generate session summaries** for future context:
    - `change_required`: A 1-2 sentence summary of what changes were originally required (read the ticket above)
    - `changes_made`: A 1-2 sentence summary of what you actually implemented
 10. Run the `finalize_session` tool with both summaries to complete the session
+=======
+9. Run the `finalize_session` tool to complete the session
+>>>>>>> 9b358222e23f56699f11fd201343f5ce4f959f61
 
 ## 🔧 Technical Guidelines
 - Use TypeScript for type safety
@@ -180,9 +184,13 @@ class PromptBuilder:
 - [ ] Update documentation if needed
 - [ ] Verify all acceptance criteria are met
 - [ ] After implementation, and test pass create a pull request with a clear title referencing the ticket ID and a summary of the changes made.
+<<<<<<< HEAD
 - [ ] Generate `change_required` summary: what changes were needed (1-2 sentences from the ticket)
 - [ ] Generate `changes_made` summary: what was actually implemented (1-2 sentences)
 - [ ] Run the finalize_session tool with both summaries to finalize the session.
+=======
+- [ ] run the finalize_session tool to finalize the session.
+>>>>>>> 9b358222e23f56699f11fd201343f5ce4f959f61
 
 **Note**: This prompt was generated using the '{ticket_data.get('template_name', 'feature')}' template. Data source: {ticket_data.get('source', 'mcp')}.
 """
@@ -231,10 +239,14 @@ class PromptBuilder:
 6. **Add regression tests**: Ensure the bug doesn't happen again
 7. **Verify the fix**: Test that the issue is resolved and all tests pass
 8. **Create Pull Request**: Create a PR with the fix
+<<<<<<< HEAD
 9. **Generate session summaries**:
    - `change_required`: 1-2 sentence summary of what bug needed fixing
    - `changes_made`: 1-2 sentence summary of the fix implemented
 10. **Finalize**: Run the `finalize_session` tool with both summaries
+=======
+9. **Finalize**: Run the `finalize_session` tool
+>>>>>>> 9b358222e23f56699f11fd201343f5ce4f959f61
 
 ## 🔧 Bug Fix Guidelines
 - Make minimal, targeted changes
