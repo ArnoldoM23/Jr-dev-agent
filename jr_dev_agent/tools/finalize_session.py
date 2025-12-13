@@ -98,12 +98,6 @@ async def handle_finalize_session(
             memory_service = SyntheticMemory(root=memory_root, backend="fs")
             logger.info(f"Using session-specific memory root: {memory_root}")
 
-        # Fallback: if changes_made is not provided, use feedback if it looks like a summary
-        changes_summary = args.changes_made
-        if not changes_summary and args.feedback:
-            logger.info("Using feedback as fallback for changes_made summary")
-            changes_summary = args.feedback
-
         try:
             await memory_service.record_completion(
                 ticket_id=args.ticket_id,
@@ -119,7 +113,7 @@ async def handle_finalize_session(
                     "agent_telemetry": args.agent_telemetry,
                 },
                 change_required=args.change_required,
-                changes_made=changes_summary
+                changes_made=args.changes_made
             )
         except Exception as e:
             logger.warning(f"Failed to persist synthetic memory completion: {str(e)}")

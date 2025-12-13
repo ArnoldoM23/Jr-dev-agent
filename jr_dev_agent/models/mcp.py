@@ -246,8 +246,8 @@ class FinalizeSessionArgs(BaseModel):
     manual_edits: int = Field(default=0, ge=0, description="Number of manual edits")
     duration_ms: int = Field(default=0, ge=0, description="Session duration in milliseconds")
     feedback: Optional[str] = Field(None, description="Developer feedback or qualitative notes about the run")
-    change_required: Optional[str] = Field(None, description="Agent-generated summary of what changes were required (from the original task)")
-    changes_made: Optional[str] = Field(None, description="Agent-generated summary of changes actually made")
+    change_required: str = Field(..., description="Agent-generated summary of what changes were required (from the original task)")
+    changes_made: str = Field(..., description="Agent-generated summary of changes actually made")
     agent_telemetry: Dict[str, Any] = Field(default_factory=dict, description="Raw telemetry emitted by the coding agent")
 
     class Config:

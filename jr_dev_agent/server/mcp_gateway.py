@@ -49,6 +49,18 @@ MCP_TOOLS = {
                     "type": "string",
                     "description": "Branch name (optional)"
                 },
+                "repository": {
+                    "type": "string",
+                    "description": "Fully-qualified repo (e.g., org/repo) if available"
+                },
+                "ide": {
+                    "type": "string",
+                    "description": "Client IDE hint (e.g., vscode, cursor, windsurf)"
+                },
+                "user": {
+                    "type": "string",
+                    "description": "User identifier/email for telemetry"
+                },
                 "project_root": {
                     "type": "string",
                     "description": "Path to the project root directory (for memory storage)"
@@ -95,12 +107,20 @@ MCP_TOOLS = {
                     "type": "string",
                     "description": "Developer feedback or qualitative notes about the run"
                 },
+                "change_required": {
+                    "type": "string",
+                    "description": "Agent-generated summary of what changes were required (from the original task)"
+                },
+                "changes_made": {
+                    "type": "string",
+                    "description": "Agent-generated summary of changes actually made"
+                },
                 "agent_telemetry": {
                     "type": "object",
                     "description": "Raw telemetry emitted by the coding agent (retries, commands, etc.)"
                 }
             },
-            "required": ["session_id", "ticket_id"]
+            "required": ["session_id", "ticket_id", "change_required", "changes_made"]
         }
     ),
     
