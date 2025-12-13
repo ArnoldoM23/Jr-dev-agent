@@ -82,10 +82,24 @@ async def handle_finalize_session(
         "pess_result": pess_result,
     }
 
+    # Retrieve session to get project_root if available
+    session = session_manager.get_session(args.session_id)
+    project_root = session.metadata.get("project_root") if session and session.metadata else None
+
     # Update synthetic memory with final completion data
-    if jr_dev_graph and hasattr(jr_dev_graph, "synthetic_memory"):
+    if jr_dev_graph:
+        # Determine memory service to use
+        memory_service = jr_dev_graph.synthetic_memory
+        
+        # If project_root is specified for this session, use a temporary instance pointing to it
+        if project_root:
+            from jr_dev_agent.services.synthetic_memory import SyntheticMemory
+            memory_root = os.path.join(project_root, "syntheticMemory")
+            memory_service = SyntheticMemory(root=memory_root, backend="fs")
+            logger.info(f"Using session-specific memory root: {memory_root}")
+
         try:
-            await jr_dev_graph.synthetic_memory.record_completion(
+            await memory_service.record_completion(
                 ticket_id=args.ticket_id,
                 pr_url=args.pr_url or "",
                 pess_score=pess_result.get("prompt_score", 0.5),
@@ -98,6 +112,8 @@ async def handle_finalize_session(
                     "feedback": args.feedback,
                     "agent_telemetry": args.agent_telemetry,
                 },
+                change_required=args.change_required,
+                changes_made=args.changes_made
             )
         except Exception as e:
             logger.warning(f"Failed to persist synthetic memory completion: {str(e)}")
