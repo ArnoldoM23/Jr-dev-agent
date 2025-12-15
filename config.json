@@ -18,6 +18,10 @@
     "url": "env:PESS_URL",
     "api_key": "env:PESS_API_KEY"
   },
+  "prompt_templates": {
+    "repository_url": "https://github.com/ArnoldoM23/jr-dev-agent-prompt-templates",
+    "auth_token": "env:GITHUB_TOKEN"
+  },
   "prompt_builder": {
     "use_llm_assist": false,
     "llm_model": "gpt-4"

@@ -68,6 +68,8 @@ def test_prepare_and_finalize_flow(client: TestClient, monkeypatch):
                 "duration_ms": 1000,
                 "feedback": "Automated test feedback",
                 "agent_telemetry": {"retries": 0},
+                "change_required": "Update schemas",
+                "changes_made": "Updated schemas successfully"
             },
         },
     }

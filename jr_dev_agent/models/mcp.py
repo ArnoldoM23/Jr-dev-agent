@@ -280,6 +280,7 @@ class FinalizeSessionResult(BaseModel):
     pess_score: confloat(ge=0.0, le=100.0) = Field(..., description="PESS effectiveness score (0-100)")
     analytics: Dict[str, Any] = Field(..., description="Session analytics data")
     confluence_update: Optional[Dict[str, Any]] = Field(None, description="Details about the Confluence template update if performed")
+    template_update_request: Optional[Dict[str, Any]] = Field(None, description="Request for agent to update template if score is low")
 
     class Config:
         json_schema_extra = {
@@ -295,9 +296,53 @@ class FinalizeSessionResult(BaseModel):
                     "memory_updated": True,
                     "template_performance": "good",
                     "completion_timestamp": "2025-08-11T15:30:00Z"
+                },
+                "template_update_request": {
+                    "required": True,
+                    "template_name": "feature",
+                    "reason": "Low PESS score (75/100). Retry count high."
                 }
             }
         }
+
+
+class CreateTemplatePRArgs(BaseModel):
+    """
+    Arguments for the create_template_pr MCP tool
+    
+    This tool creates a Pull Request to update a prompt template.
+    """
+    template_name: str = Field(..., description="Name of the template to update (e.g., 'feature', 'bugfix')")
+    updated_content: str = Field(..., description="The full YAML content of the updated template")
+    pr_title: str = Field(..., description="Title for the Pull Request")
+    pr_description: str = Field(..., description="Description for the Pull Request explaining the changes")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "template_name": "feature",
+                "updated_content": "name: feature\ndescription: ...",
+                "pr_title": "Update feature template to improve clarity",
+                "pr_description": "Updated instructions to be more specific based on PESS feedback."
+            }
+        }
+
+
+class CreateTemplatePRResult(BaseModel):
+    """
+    Result from the create_template_pr MCP tool
+    """
+    pr_url: str = Field(..., description="URL of the created Pull Request")
+    status: str = Field(..., description="Status of the operation")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "pr_url": "https://github.com/ArnoldoM23/jr-dev-agent-prompt-templates/pull/1",
+                "status": "success"
+            }
+        }
+
 
 
 class HealthServiceInfo(BaseModel):
