@@ -32,8 +32,10 @@ The result is a precise, actionable prompt injected directly into your IDE, empo
             ┌───────▼────┐ ┌─────▼─────┐ ┌───▼────────────┐
             │    PESS    │ │ Synthetic │ │   PromptBuilder│
             │  Scoring   │ │  Memory   │ │   + Templates  │
-            │   System   │ │  (MVP FS) │ │                │
-            └────────────┘ └───────────┘ └────────────────┘
+            │   System   │ │(Consolidated)││ (GitHub-Sync)│
+            └──────┬─────┘ └───────────┘ └───▲────────────┘
+                   │                         │
+                   └───────Template Update───┘
 ```
 
 ## 🧠 Core Components
@@ -42,13 +44,15 @@ The result is a precise, actionable prompt injected directly into your IDE, empo
 The central nervous system of the agent, serving as a high-throughput request router and workflow coordinator. It abstracts IDE-specific implementations into a unified protocol, enabling seamless, consistent agent capabilities across VS Code, Cursor, Windsurf, and any future MCP-compliant environments.
 
 ### 2. 🧠 **Synthetic Memory Engine**
-An advanced knowledge persistence layer that enables the agent to "learn" from past iterations. It automatically enriches new tasks with relevant context, historical file patterns, and architectural relationships, featuring robust type safety and self-healing capabilities to maintain data integrity across evolving schema versions.
+An advanced knowledge persistence layer that enables the agent to "learn" from past iterations. It automatically enriches new tasks with relevant context, historical file patterns, and architectural relationships.
+**New in v2.1**: Memory consolidated into `agent_run.json` for cleaner project structure, removing redundant summary files.
 
 ### 3. 📊 **PESS Intelligence Layer** 
-An integrated Prompt Effectiveness Scoring System that quantitatively evaluates the quality of every generated prompt. By analyzing execution outcomes, it identifies gaps in template clarity and context, creating a feedback loop that signals when and how templates should be evolved to maintain high agent success rates.
+An integrated Prompt Effectiveness Scoring System that quantitatively evaluates the quality of every generated prompt.
+**New in v2.1**: Automated Template Improvement Loop. Low PESS scores (<80%) automatically trigger a request for the Agent to analyze the failure, improve the template, and submit a Pull Request to the template repository.
 
 ### 4. 🧱 **Adaptive PromptBuilder**
-A hybrid deterministic/generative engine that constructs high-fidelity prompts. It dynamically parses ephemeral template schemas embedded directly within Jira descriptions, allowing teams to define and evolve their specification standards on the fly without code changes.
+A hybrid deterministic/generative engine that constructs high-fidelity prompts. It dynamically parses ephemeral template schemas embedded directly within Jira descriptions. Templates are now managed via a dedicated GitHub repository, allowing for centralized versioning and automated updates via the Agent.
 
 ### 5. 🔗 **Resilient Integration Layer**
 A fault-tolerant gateway that seamlessly bridges your IDE with enterprise tools like Jira. It features an intelligent multi-tiered fallback system, ensuring uninterrupted development workflows even during API outages or completely offline scenarios via local template overrides.
@@ -80,8 +84,21 @@ pip install -r requirements.txt
 ### 2. Configuration
 ```bash
 cp config.json.example config.json
-# Edit config.json with your settings if needed
+# Edit config.json with your settings
 ```
+
+**Required Configuration** (`config.json`):
+```json
+{
+  "jira": { ... },
+  "pess": { ... },
+  "prompt_templates": {
+    "repository_url": "https://github.com/your-org/prompt-templates",
+    "auth_token": "env:GITHUB_TOKEN"
+  }
+}
+```
+*Note: `auth_token` is required for the Agent to submit template improvements.*
 
 ### 3. Start MCP Gateway Server
 
@@ -175,14 +192,24 @@ The system will:
 | Command | Description |
 |---------|-------------|
 | `@jrdev prepare_agent_task ID` | Generate agent-ready prompt for ticket |
+| `create_template_pr` | **New**: Create GitHub PR to update templates |
+| `finalize_session` | Complete session, Score PESS, and Trigger Updates |
 | Health endpoint: `GET /health` | Check server status |
-| MCP finalize tool | `/mcp/tools/call` with `finalize_session` |
 
 For scripted demos use `python scripts/demo_mcp_workflow.py`.
 
 ## 🧠 Synthetic Memory System
 
 The system automatically creates a learning knowledge base in `syntheticMemory/`.
+
+**Structure**:
+```
+syntheticMemory/features/<feature>/<ticket>/
+├── agent_run.json       # Consolidated history, summaries, PESS scores, PR URLs
+├── files.json           # File relationships & complexity metrics
+├── graph.json           # Related nodes & connected features
+└── README.md            # Human-readable context
+```
 
 **Memory Enrichment** automatically adds context like:
 - 🔗 Related files and features you've worked on before
