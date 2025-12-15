@@ -120,40 +120,86 @@ async def handle_finalize_session(
 
     # Trigger Confluence update (mocked locally when not configured)
     confluence_update = None
+    
+    # NEW: Determine if template update is needed based on PESS score
+    template_update_request = None
+    
+    # Threshold for template update recommendation (e.g. < 80%)
+    TEMPLATE_UPDATE_THRESHOLD = 80.0
+    
+    if pess_score_percent < TEMPLATE_UPDATE_THRESHOLD:
+        # Get template name from metadata or guess based on what we have
+        template_name = "feature" # Default fallback
+        if session and session.metadata and "template_used" in session.metadata:
+            template_name = session.metadata["template_used"]
+            
+        template_update_request = {
+            "required": True,
+            "template_name": template_name,
+            "reason": f"PESS score ({pess_score_percent}%) is below threshold ({TEMPLATE_UPDATE_THRESHOLD}%). "
+                      f"Feedback: {args.feedback or 'None'}. "
+                      f"Retries: {args.retry_count}. "
+                      "Please analyze the failure patterns and propose an updated template."
+        }
+        logger.info(f"Triggering template update request for {template_name} (Score: {pess_score_percent}%)")
+
+    # Legacy Confluence update logic (kept for backward compatibility if client configured)
     if confluence_client is None:
-        from jr_dev_agent.clients import ConfluenceMCPClient
+        try:
+            from jr_dev_agent.clients import ConfluenceMCPClient
+            confluence_client = ConfluenceMCPClient()
+        except ImportError:
+            pass # Client might not exist in pure MCP setup
 
-        confluence_client = ConfluenceMCPClient()
-
-    try:
-        update_body = compose_confluence_update(args.ticket_id, args, pess_result)
-        if update_body:
-            page_id = os.getenv("CONFLUENCE_TEMPLATE_PAGE_ID", args.ticket_id)
-            confluence_update = confluence_client.update_template(
-                page_id=page_id,
-                new_body=update_body,
-                metadata={
-                    "ticket_id": args.ticket_id,
-                    "session_id": args.session_id,
-                    "pess_score_percent": pess_score_percent,
-                },
-            )
-            analytics["confluence_update"] = confluence_update
-    except Exception as e:
-        logger.warning(f"Confluence update failed: {str(e)}")
+    if confluence_client:
+        try:
+            update_body = compose_confluence_update(args.ticket_id, args, pess_result)
+            if update_body:
+                page_id = os.getenv("CONFLUENCE_TEMPLATE_PAGE_ID", args.ticket_id)
+                confluence_update = confluence_client.update_template(
+                    page_id=page_id,
+                    new_body=update_body,
+                    metadata={
+                        "ticket_id": args.ticket_id,
+                        "session_id": args.session_id,
+                        "pess_score_percent": pess_score_percent,
+                    },
+                )
+                analytics["confluence_update"] = confluence_update
+        except Exception as e:
+            logger.warning(f"Confluence update failed: {str(e)}")
 
     result = FinalizeSessionResult(
         pess_score=round(pess_score_percent, 1),
         analytics=analytics,
         confluence_update=confluence_update,
+        template_update_request=template_update_request
     )
+    
+    # Format message to Agent
+    response_text = f"Session finalized for {args.ticket_id}.\nPESS Score: {pess_score_percent}%\n"
+    
+    if args.feedback:
+        response_text += f"Feedback: {args.feedback}\n"
+    
+    if template_update_request:
+        response_text += (
+            "\n⚠️ **TEMPLATE UPDATE REQUIRED** ⚠️\n"
+            f"The PESS score is below the quality threshold ({pess_score_percent}% < 80%).\n"
+            "You must now IMPROVE the prompt template to prevent this in the future.\n\n"
+            "**Instructions:**\n"
+            "1. Analyze the `full_prompt` in `agent_run.json` and the user feedback.\n"
+            "2. Identify why the previous prompt failed or needed retries.\n"
+            f"3. Generate an improved version of the `{template_update_request['template_name']}` template.\n"
+            "4. Use the `create_template_pr` tool to submit your improvements.\n"
+        )
     
     # Format as valid MCP CallToolResult
     return {
         "content": [
             {
                 "type": "text",
-                "text": f"Session finalized for {args.ticket_id}.\nPESS Score: {pess_score_percent}%\n\nFeedback: {args.feedback or 'No feedback provided'}"
+                "text": response_text
             }
         ],
         "_meta": result.model_dump()

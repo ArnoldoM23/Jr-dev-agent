@@ -1,14 +1,19 @@
 {
   "ticket_id": "CEPG-67890",
+  "feature_id": "order_self_pickup",
+  "created_at": 1765784419.6287549,
   "pr_url": "",
-  "pess_score": 0.96,
-  "completion_timestamp": 1765410421.403659,
+  "pess_score": 0.84,
+  "completion_timestamp": 1765784447.580472,
+  "full_prompt": null,
+  "change_required": "Update schemas",
+  "changes_made": "Updated schemas successfully",
   "metadata": {
     "session_id": "test-session",
     "files_modified": [
       "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/fulfillment-group/shipping-strategies.graphq",
-      "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/update-shipping-strategy.graphq",
       "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/update-shipping-strategy.graphql",
+      "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/update-shipping-strategy.graphq",
       "ce-cartxo/src/type-defs/gql/common/contract/fulfillment/fulfillment-group/shipping-strategies.graphql"
     ],
     "retry_count": 0,
@@ -18,5 +23,6 @@
     "agent_telemetry": {
       "retries": 0
     }
-  }
+  },
+  "status": "completed"
 }

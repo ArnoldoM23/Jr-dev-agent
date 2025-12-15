@@ -427,6 +427,13 @@ Must include operational data:
 - **Session Continuity**: The `project_root` context must be preserved across the session lifecycle (from `prepare` to `finalize`) to ensure the final write occurs in the correct location.
 - **Default Fallback**: If no project root is provided, default to the Agent's configured root, but production usage should always specify a project root.
 
-## 4. Fallback Behaviors
-- If `changes_made` is not provided by the agent, the system MUST fallback to using the `feedback` field to ensure *some* record of the action is preserved.
-- If `change_required` is missing, the system preserves the field as null (or legacy fallback if implemented), relying on the prompt to enforce agent compliance.
+## 9. Template Management & Updates
+- **Source of Truth**: GitHub Repository `ArnoldoM23/jr-dev-agent-prompt-templates`.
+- **Update Trigger**: Low PESS score (< 80%) in `finalize_session`.
+- **Workflow**:
+    1. `finalize_session` detects low score and returns `template_update_request`.
+    2. Agent (Cursor) receives instruction to analyze `agent_run.json` and generate improvements.
+    3. Agent calls `create_template_pr` with improved YAML content.
+    4. MCP Server creates a new branch and PR in the template repo.
+- **Tools**:
+    - `create_template_pr(template_name, updated_content, pr_title, pr_description)`

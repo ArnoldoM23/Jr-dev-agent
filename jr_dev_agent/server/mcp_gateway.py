@@ -18,12 +18,14 @@ from fastapi.responses import StreamingResponse
 
 from jr_dev_agent.models.mcp import (
     MCPRequest, MCPResponse, MCPToolDefinition, MCPErrorCodes,
-    PrepareAgentTaskArgs, FinalizeSessionArgs, MCPInitializeResult
+    PrepareAgentTaskArgs, FinalizeSessionArgs, MCPInitializeResult,
+    CreateTemplatePRArgs
 )
 from jr_dev_agent.tools import (
     handle_prepare_agent_task,
     handle_finalize_session,
-    handle_health_tool
+    handle_health_tool,
+    handle_create_template_pr
 )
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,33 @@ MCP_TOOLS = {
                 }
             },
             "required": ["session_id", "ticket_id", "change_required", "changes_made"]
+        }
+    ),
+
+    "create_template_pr": MCPToolDefinition(
+        name="create_template_pr",
+        description="Create a PR to update a prompt template based on PESS feedback",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "template_name": {
+                    "type": "string",
+                    "description": "Name of the template to update (e.g., 'feature', 'bugfix')"
+                },
+                "updated_content": {
+                    "type": "string", 
+                    "description": "The full YAML content of the updated template"
+                },
+                "pr_title": {
+                    "type": "string",
+                    "description": "Title for the Pull Request"
+                },
+                "pr_description": {
+                    "type": "string",
+                    "description": "Description for the Pull Request explaining the changes"
+                }
+            },
+            "required": ["template_name", "updated_content", "pr_title", "pr_description"]
         }
     ),
     
@@ -320,6 +349,10 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
                     FinalizeSessionArgs(**arguments),
                     session_manager,
                     jr_dev_graph=jr_dev_graph
+                )
+            elif tool_name == "create_template_pr":
+                result = await handle_create_template_pr(
+                    CreateTemplatePRArgs(**arguments)
                 )
             elif tool_name == "health":
                 result = await handle_health_tool(jr_dev_graph, session_manager)

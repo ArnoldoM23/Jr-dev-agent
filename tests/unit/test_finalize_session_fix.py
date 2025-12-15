@@ -37,7 +37,9 @@ async def test_finalize_session_uses_feedback_from_args():
         duration_ms=1000,
         feedback="This is my feedback",
         retry_count=0,
-        manual_edits=0
+        manual_edits=0,
+        change_required="Fix bug",
+        changes_made="Fixed bug"
     )
 
     # Execute the handler
