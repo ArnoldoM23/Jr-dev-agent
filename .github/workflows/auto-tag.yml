@@ -19,7 +19,8 @@ jobs:
           fetch-depth: 0
 
       - name: Python Semantic Release
-        uses: python-semantic-release/python-semantic-release@master
+        uses: python-semantic-release/python-semantic-release@v9.15.2
         with:
-          # Fallback to GITHUB_TOKEN if PAT is missing (sufficient for tagging if commit is disabled)
-          github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@github.com"
