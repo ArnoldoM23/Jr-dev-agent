@@ -21,5 +21,5 @@ jobs:
       - name: Python Semantic Release
         uses: python-semantic-release/python-semantic-release@master
         with:
-          # Use a PAT to bypass branch protection rules (e.g., 'Changes must be made through a PR')
-          github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN }}
+          # Fallback to GITHUB_TOKEN if PAT is missing (sufficient for tagging if commit is disabled)
+          github_token: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
