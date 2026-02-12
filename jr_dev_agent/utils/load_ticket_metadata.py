@@ -242,14 +242,17 @@ def parse_text_template_content(content: str, ticket_id: str) -> Optional[Dict[s
         # Map Reference_Files to files_affected
         files_affected = []
         # Check keys case-insensitively (parser returns lowercase keys if YAML parsed)
-        if "reference_files" in extracted and isinstance(extracted["reference_files"], list):
-            files_affected = extracted["reference_files"]
-        elif "Reference_Files" in extracted and isinstance(extracted["Reference_Files"], list):
-            files_affected = extracted["Reference_Files"]
-        elif "file_references" in extracted and isinstance(extracted["file_references"], list):
-            files_affected = extracted["file_references"]
-        elif "files_affected" in extracted and isinstance(extracted["files_affected"], list):
-            files_affected = extracted["files_affected"]
+        for key in ["reference_files", "file_references", "files_affected"]:
+            if key in extracted and isinstance(extracted[key], list):
+                files_affected = extracted[key]
+                break
+        
+        # Extract acceptance criteria
+        acceptance_criteria = []
+        for key in ["acceptance_criteria", "criteria", "requirements"]:
+            if key in extracted and isinstance(extracted[key], list):
+                acceptance_criteria = extracted[key]
+                break
             
         # 4. Construct metadata
         metadata = {
@@ -259,11 +262,11 @@ def parse_text_template_content(content: str, ticket_id: str) -> Optional[Dict[s
             "description": description_text,
             "feature": extracted.get("feature", "unknown_feature"),
             "prompt_text": extracted.get("prompt_text"),
-            "priority": "medium",
-            "story_points": 0,
-            "labels": [],
+            "priority": extracted.get("priority", "medium"),
+            "story_points": extracted.get("story_points", 0),
+            "labels": extracted.get("labels", []),
             "files_affected": files_affected,
-            "acceptance_criteria": [],
+            "acceptance_criteria": acceptance_criteria,
             "_fallback_used": "text_template"
         }
         
@@ -285,10 +288,11 @@ def load_from_text_template(ticket_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         # Priority 1: Check Repo Root (CWD)
+        repo_template_file = Path.cwd() / "jira_ticket_template.txt"
         target_file = None
-        if REPO_TEMPLATE_FILE.exists():
-            target_file = REPO_TEMPLATE_FILE
-            logger.info(f"Found text template in repo root: {REPO_TEMPLATE_FILE}")
+        if repo_template_file.exists():
+            target_file = repo_template_file
+            logger.info(f"Found text template in repo root: {repo_template_file}")
         # Priority 2: Check Internal Fallback (for dev/testing)
         elif FALLBACK_TEMPLATE_FILE.exists():
             target_file = FALLBACK_TEMPLATE_FILE
@@ -399,8 +403,8 @@ def validate_ticket_metadata(metadata: Dict[str, Any]) -> JiraMetadata:
                     metadata["prompt_text"] = extracted_template["prompt_text"]
                 
                 # Map optional fields if they exist in template but not in metadata
-                for field in ["feature", "summary"]:
-                    if field in extracted_template and field not in metadata:
+                for field in ["feature", "summary", "acceptance_criteria", "files_affected", "priority", "labels"]:
+                    if field in extracted_template and (field not in metadata or not metadata[field]):
                         metadata[field] = extracted_template[field]
                         
         except Exception as e:

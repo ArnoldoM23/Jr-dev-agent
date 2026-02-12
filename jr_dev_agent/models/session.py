@@ -8,7 +8,7 @@ Sessions track the lifecycle of a ticket from initial request to PR completion.
 import json
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -101,12 +101,13 @@ class SessionManager:
         """
         session_id = f"jr_dev_{ticket_id}_{str(uuid4())[:8]}"
         
+        now = datetime.now(timezone.utc)
         session = Session(
             session_id=session_id,
             ticket_id=ticket_id,
             status=SessionStatus.CREATED,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+            created_at=now,
+            updated_at=now,
             metadata=metadata or {}
         )
         
@@ -160,7 +161,7 @@ class SessionManager:
             if field in allowed_fields:
                 setattr(session, field, value)
         
-        session.updated_at = datetime.now()
+        session.updated_at = datetime.now(timezone.utc)
         self.logger.info(f"Updated session: {session_id}")
         
         return True
@@ -184,8 +185,8 @@ class SessionManager:
         
         session.status = SessionStatus.COMPLETED
         session.pr_url = pr_url
-        session.completed_at = datetime.fromisoformat(completed_at) if completed_at else datetime.now()
-        session.updated_at = datetime.now()
+        session.completed_at = datetime.fromisoformat(completed_at) if completed_at else datetime.now(timezone.utc)
+        session.updated_at = datetime.now(timezone.utc)
         
         self.logger.info(f"Completed session: {session_id}")
         return True
@@ -207,7 +208,7 @@ class SessionManager:
         
         session.status = SessionStatus.FAILED
         session.error_message = error_message
-        session.updated_at = datetime.now()
+        session.updated_at = datetime.now(timezone.utc)
         
         self.logger.info(f"Failed session: {session_id} - {error_message}")
         return True
@@ -227,7 +228,7 @@ class SessionManager:
             return False
         
         session.status = SessionStatus.EXPIRED
-        session.updated_at = datetime.now()
+        session.updated_at = datetime.now(timezone.utc)
         
         self.logger.info(f"Expired session: {session_id}")
         return True

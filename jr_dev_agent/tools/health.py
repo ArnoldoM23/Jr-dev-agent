@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 
-from jr_dev_agent.models.mcp import HealthToolResult
+from jr_dev_agent.models.mcp import HealthToolResult, HealthServiceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,40 @@ async def handle_health_tool(jr_dev_graph, session_manager) -> Dict[str, Any]:
     mcp_tools_available = 3
     
     services = {
-        "langgraph": "available" if graph_health.get("status") == "healthy" else "degraded",
-        "session_manager": "available",
-        "fallback_system": "available",
-        "mcp_gateway": "available"
+        "langgraph": HealthServiceInfo(
+            status="available" if graph_health.get("status") == "healthy" else "degraded",
+            version="langgraph",
+            details={
+                "graph_initialized": graph_health.get("graph_initialized", False),
+                "components": {
+                    "prompt_builder": graph_health.get("prompt_builder", {}),
+                    "template_engine": graph_health.get("template_engine", {}),
+                    "jira_prompt_node": graph_health.get("jira_prompt_node", {}),
+                    "synthetic_memory": graph_health.get("synthetic_memory", {}),
+                    "pess_client": graph_health.get("pess_client", {}),
+                    "prompt_composer": graph_health.get("prompt_composer", {}),
+                },
+            },
+        ),
+        "session_manager": HealthServiceInfo(
+            status="available",
+            version="session_manager",
+            details={"stats": session_stats},
+        ),
+        "fallback_system": HealthServiceInfo(
+            status="available",
+            version="fallback",
+            details={},
+        ),
+        "mcp_gateway": HealthServiceInfo(
+            status="available",
+            version="mcp_gateway",
+            details={},
+        ),
     }
     
-    if "degraded" in services.values() or "unavailable" in services.values():
+    service_statuses = [svc.status for svc in services.values()]
+    if "degraded" in service_statuses or "unavailable" in service_statuses:
         overall_status = "degraded"
     
     result = HealthToolResult(

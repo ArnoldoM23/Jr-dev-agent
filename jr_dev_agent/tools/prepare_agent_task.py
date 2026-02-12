@@ -35,42 +35,73 @@ async def handle_prepare_agent_task(
     # Load full ticket data first
     from jr_dev_agent.utils.load_ticket_metadata import load_ticket_metadata
     
+    # Load complete ticket metadata (always attempt this first)
+    full_ticket_data = load_ticket_metadata(
+        args.ticket_id,
+        fallback_content=args.fallback_template_content
+    )
+    logger.info(f"Loaded ticket data for {args.ticket_id}: {list(full_ticket_data.keys())}")
+
+    # Prefer full LangGraph workflow, but fall back to a local prompt build if it fails.
+    workflow_result: Dict[str, Any] = {}
     try:
-        # Load complete ticket metadata
-        full_ticket_data = load_ticket_metadata(
-            args.ticket_id,
-            fallback_content=args.fallback_template_content
-        )
-        logger.info(f"Loaded ticket data for {args.ticket_id}: {list(full_ticket_data.keys())}")
-        
-        # Process ticket through existing LangGraph workflow
         workflow_result = await jr_dev_graph.process_ticket(
             ticket_data=full_ticket_data,
             session_id=session_id,
             project_root=args.project_root
         )
-        
-        # Validate workflow result
-        if not workflow_result:
-            raise ValueError("LangGraph workflow returned None result")
-        
-        if "prompt" not in workflow_result:
-            raise ValueError(f"LangGraph workflow missing 'prompt' field: {workflow_result}")
-        
-        # Transform workflow result into agent-ready format
-        agent_prompt = format_prompt_for_agent(
-            prompt=workflow_result["prompt"],
-            metadata=workflow_result.get("metadata", {}),
-            template_used=workflow_result.get("template_used", "feature")
-        )
-        
-        # Extract actionable metadata for agent execution
-        files_to_modify = extract_files_from_prompt(workflow_result["prompt"])
-        commands = extract_commands_from_prompt(workflow_result["prompt"])
-        
+        if not workflow_result or "prompt" not in workflow_result:
+            raise ValueError(f"LangGraph workflow returned invalid result: {workflow_result}")
     except Exception as workflow_error:
-        logger.error(f"LangGraph workflow error: {str(workflow_error)}")
-        raise ValueError(f"Failed to process ticket through workflow: {str(workflow_error)}")
+        # Known intermittent failure mode: BrokenPipeError / OSError(32) coming from the runtime.
+        # We still want a usable, agent-ready prompt for the developer.
+        logger.error(
+            "LangGraph workflow failed; falling back to local prompt build",
+            exc_info=workflow_error,
+        )
+
+        # Build a structured prompt without calling the graph.
+        template_used = full_ticket_data.get("template_name") or "feature"
+
+        # If prompt_text is present, PromptBuilder will echo it; that can be too raw.
+        # Prefer a structured prompt generated from ticket fields.
+        ticket_for_builder = dict(full_ticket_data)
+        ticket_for_builder.pop("prompt_text", None)
+
+        # Ensure prompt builder is initialized
+        try:
+            if hasattr(jr_dev_graph, "prompt_builder") and hasattr(jr_dev_graph.prompt_builder, "initialize"):
+                await jr_dev_graph.prompt_builder.initialize()
+        except Exception:
+            # Non-fatal: PromptBuilder.initialize is idempotent, but shouldn't block fallback.
+            pass
+
+        prompt = await jr_dev_graph.prompt_builder.generate_prompt(
+            template_name=template_used,
+            ticket_data=ticket_for_builder,
+            enrichment_data={"context_enriched": False},
+        )
+
+        workflow_result = {
+            "prompt": prompt,
+            "template_used": template_used,
+            "processing_time_ms": 0,
+            "metadata": {
+                "fallback_used": True,
+                "fallback_reason": str(workflow_error),
+            },
+        }
+
+    # Transform workflow result into agent-ready format
+    agent_prompt = format_prompt_for_agent(
+        prompt=workflow_result["prompt"],
+        metadata=workflow_result.get("metadata", {}),
+        template_used=workflow_result.get("template_used", "feature")
+    )
+    
+    # Extract actionable metadata for agent execution
+    files_to_modify = extract_files_from_prompt(workflow_result["prompt"])
+    commands = extract_commands_from_prompt(workflow_result["prompt"])
     
     result = {
         "content": [

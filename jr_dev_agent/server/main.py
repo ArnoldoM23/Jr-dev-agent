@@ -50,6 +50,9 @@ app.add_middleware(
 session_manager = SessionManager()
 jr_dev_graph = JrDevGraph()
 
+# Add MCP Gateway routes (enhanced with v2 Synthetic Memory & PESS integration)
+add_mcp_routes(app, jr_dev_graph, session_manager)
+
 # Pydantic models for API requests/responses
 class SessionCompleteRequest(BaseModel):
     session_id: str = Field(..., description="Session ID to mark complete")
@@ -256,10 +259,6 @@ async def startup_event():
     
     # Initialize session manager
     session_manager.initialize()
-    
-    # Add MCP Gateway routes (enhanced with v2 Synthetic Memory & PESS integration)
-    add_mcp_routes(app, jr_dev_graph, session_manager)
-    logger.info("✅ MCP Gateway routes added with v2 enhancements (Synthetic Memory + PESS)")
     
     logger.info("✅ Jr Dev Agent MCP Server ready!")
 

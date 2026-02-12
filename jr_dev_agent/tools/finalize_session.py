@@ -96,6 +96,7 @@ async def handle_finalize_session(
             from jr_dev_agent.services.synthetic_memory import SyntheticMemory
             memory_root = os.path.join(project_root, "syntheticMemory")
             memory_service = SyntheticMemory(root=memory_root, backend="fs")
+            await memory_service.initialize()
             logger.info(f"Using session-specific memory root: {memory_root}")
 
         try:

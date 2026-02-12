@@ -47,9 +47,38 @@ class PromptBuilder:
             self.logger.info(f"Generating prompt for ticket {ticket_data['ticket_id']} using template {template_name}")
             
             # Generate the prompt based on template
-            if ticket_data.get('prompt_text'):
-                self.logger.info(f"Using provided prompt_text from ticket data")
-                prompt = ticket_data['prompt_text']
+            prompt_text = ticket_data.get('prompt_text')
+            description_text = ticket_data.get('description') or ""
+
+            # Heuristic: some templates embed a short `prompt_text` but keep key requirements
+            # (schema updates, file refs, commands) in the broader description. In those cases,
+            # prefer a structured prompt that includes the full description.
+            use_prompt_text_only = bool(prompt_text)
+
+            # For schema-change style tickets, prefer structured prompts over raw prompt_text.
+            # In practice, schema templates often split requirements across description sections,
+            # and `prompt_text` may not include critical field definitions.
+            if template_name in {"feature_schema_change", "schema_change"}:
+                use_prompt_text_only = False
+
+            if prompt_text and description_text:
+                pt = prompt_text.strip().lower()
+                dt = description_text.strip().lower()
+                looks_truncated = (
+                    len(pt) < max(200, int(0.5 * len(dt)))
+                    and any(k in dt for k in ["schema types", "reference files", "fields_required"])
+                    and not any(k in pt for k in ["schema types", "reference files", "fields_required"])
+                )
+                # Extra schema-specific truncation checks (common when prompt_text was extracted from YAML)
+                if not looks_truncated and any(k in dt for k in ["lineitems:", "terms type", "placeorderinput", "npm run generate"]):
+                    if not any(k in pt for k in ["lineitems:", "terms type", "placeorderinput", "npm run generate"]):
+                        looks_truncated = True
+                if looks_truncated:
+                    use_prompt_text_only = False
+
+            if use_prompt_text_only:
+                self.logger.info("Using provided prompt_text from ticket data")
+                prompt = prompt_text
             elif template_name == "feature":
                 prompt = self._generate_feature_prompt(ticket_data, enrichment_data)
             elif template_name == "bugfix":
@@ -129,6 +158,9 @@ class PromptBuilder:
 - **Related Tickets**: {related_tickets_text or 'None identified'}
 """
         
+        # Add any additional fields from ticket data
+        additional_fields_section = self._get_additional_fields_text(ticket_data)
+        
         prompt = f"""# 🎯 Development Task: {ticket_data['summary']}
 
 ## 📋 Ticket Information
@@ -139,7 +171,7 @@ class PromptBuilder:
 
 ## 📝 Description
 {ticket_data['description']}
-
+{additional_fields_section}
 ## ✅ Acceptance Criteria
 {criteria_text}
 
@@ -205,6 +237,9 @@ class PromptBuilder:
         else:
             files_text = f"- {files_affected}"
         
+        # Add any additional fields from ticket data
+        additional_fields_section = self._get_additional_fields_text(ticket_data)
+        
         prompt = f"""# 🐛 Bug Fix Task: {ticket_data['summary']}
 
 ## 📋 Ticket Information
@@ -215,7 +250,7 @@ class PromptBuilder:
 
 ## 📝 Bug Description
 {ticket_data['description']}
-
+{additional_fields_section}
 ## ✅ Fix Criteria
 {criteria_text}
 
@@ -272,6 +307,9 @@ class PromptBuilder:
         else:
             files_text = f"- {files_affected}"
         
+        # Add any additional fields from ticket data
+        additional_fields_section = self._get_additional_fields_text(ticket_data)
+        
         prompt = f"""# 🔄 Refactoring Task: {ticket_data['summary']}
 
 ## 📋 Ticket Information
@@ -282,7 +320,7 @@ class PromptBuilder:
 
 ## 📝 Refactoring Description
 {ticket_data['description']}
-
+{additional_fields_section}
 ## ✅ Refactoring Goals
 {criteria_text}
 
@@ -341,4 +379,28 @@ class PromptBuilder:
     async def cleanup(self):
         """Cleanup resources"""
         self.logger.info("PromptBuilder cleanup complete")
-        self.initialized = False 
+        self.initialized = False
+
+    def _get_additional_fields_text(self, ticket_data: Dict[str, Any]) -> str:
+        """Extract and format any extra fields not covered by the main template"""
+        additional_text = ""
+        
+        # Define fields we already handle explicitly
+        standard_fields = {
+            'ticket_id', 'summary', 'description', 'acceptance_criteria', 
+            'files_affected', 'priority', 'feature', 'assignee', 'labels', 
+            'components', 'template_name', 'source', 'prompt_text'
+        }
+        
+        # Check for any extra fields
+        extras = []
+        for key, value in ticket_data.items():
+            if key not in standard_fields and not key.startswith('_') and value:
+                # Format key for display
+                display_key = key.replace('_', ' ').title()
+                extras.append(f"- **{display_key}**: {value}")
+        
+        if extras:
+            additional_text = "\n## ➕ Additional Information\n" + "\n".join(extras) + "\n"
+            
+        return additional_text 

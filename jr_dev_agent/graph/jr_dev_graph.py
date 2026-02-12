@@ -347,7 +347,8 @@ class JrDevGraph:
         description = ticket_data.get('description', '')
         if description:
             # Look for file patterns like src/path/to/file.ts or similar
-            file_patterns = re.findall(r'[\w\-/]+\.[a-zA-Z0-9]{1,6}', description)
+            # Avoid matching version strings like "1.0" by requiring alpha extensions
+            file_patterns = re.findall(r'[\w\-/]+\.[a-zA-Z]{2,10}', description)
             files.extend(file_patterns)
         
         # Deduplicate and filter out invalid files

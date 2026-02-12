@@ -216,6 +216,7 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
         }
     
     @app.get("/mcp")
+    @app.get("/mcp/sse")
     async def mcp_endpoint():
         """
         MCP endpoint for Cursor MCP integration
@@ -224,8 +225,8 @@ def add_mcp_routes(app: FastAPI, jr_dev_graph, session_manager):
         """
         async def event_generator():
             # Send initial connection message
-            # Use endpoint='/' to tell client to POST all JSON-RPC messages to root
-            yield f"event: endpoint\ndata: http://127.0.0.1:8000/\n\n"
+            # Use endpoint='/mcp' to tell client to POST all JSON-RPC messages to /mcp
+            yield f"event: endpoint\ndata: http://127.0.0.1:2323/mcp\n\n"
             
             # Keep connection alive
             import asyncio
